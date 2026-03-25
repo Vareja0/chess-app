@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-postgres-init-scripts
+  namespace: {{ .Release.Name }}
+data:
+  1_init.sql: |
+    CREATE DATABASE {{ .Values.postgres.database }};
+    CREATE USER {{ .Values.postgres.username }} WITH PASSWORD '{{ .Values.postgres.password }}';
+    ALTER DATABASE {{ .Values.postgres.database }} OWNER TO {{ .Values.postgres.username }};
+    GRANT ALL PRIVILEGES ON DATABASE {{ .Values.postgres.database }} TO {{ .Values.postgres.username }};

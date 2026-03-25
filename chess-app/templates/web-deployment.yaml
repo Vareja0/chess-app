@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web
+  namespace: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.ginApp.replicas }}
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      initContainers:
+      - name: wait-for-redis
+        image: busybox:1.36
+        command:
+          - sh
+          - -c
+          - |
+            until nc -zv chess-app-redis-master {{ .Values.redis.master.service.port | default 6379 }}; do
+              echo "Waiting for Redis..."
+              sleep 2
+            done
+      containers:
+      - name: web
+        image: {{ .Values.ginApp.image.repository }}:{{ .Values.ginApp.image.tag }}
+        ports:
+        - containerPort: {{ .Values.ginApp.port }}
+        env:
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: postgres-db
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: postgres-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: postgres-password
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: secret-key
+        - name: REFRESH_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: refresh-secret-key
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Release.Name }}-secrets
+              key: redis-password
+        - name: DB_HOST
+          value: {{ .Release.Name }}-service-postgres
+        - name: REDIS_HOST
+          value: chess-app-redis-master
+        - name: REDIS_PORT
+          value: "6379"
+        - name: PORT
+          value: {{ .Values.ginApp.port | quote }}

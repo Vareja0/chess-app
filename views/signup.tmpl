@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Criar Conta | Xadrez Multiplayer</title>
+  <link rel="stylesheet" href="../public/assets/signupStyle.css">
+</head>
+<body>
+
+  <div class="card">
+    <div class="logo">
+      <span class="logo-icon">♟</span>
+      <h1>Criar Conta</h1>
+      <p>Junte-se ao Xadrez Multiplayer</p>
+    </div>
+
+    <form id="signupForm">
+      <div class="form-group">
+        <label for="username">Nome de usuário</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          placeholder="ex: magnus123"
+          required
+          autocomplete="username"
+        />
+        <div class="field-hint" id="usernameHint"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="seu@email.com"
+          required
+          autocomplete="email"
+        />
+        <div class="field-hint" id="emailHint"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Senha</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="••••••••"
+          required
+          autocomplete="new-password"
+        />
+        <div class="strength-bar">
+          <div id="s1"></div>
+          <div id="s2"></div>
+          <div id="s3"></div>
+          <div id="s4"></div>
+        </div>
+        <div class="field-hint" id="passwordHint"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirmar senha</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          name="confirmPassword"
+          placeholder="••••••••"
+          required
+          autocomplete="new-password"
+        />
+        <div class="field-hint" id="confirmHint"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="btnSubmit">Criar Conta</button>
+
+      <div class="message error" id="errorMsg"></div>
+      <div class="message success" id="successMsg"></div>
+    </form>
+
+    <div class="divider">já tem conta?</div>
+
+    <div class="footer-link">
+      <a href="/login">Entrar na minha conta</a>
+    </div>
+  </div>
+<script src="../public/scripts/signupScript.js"></script>
+</body>
+</html>

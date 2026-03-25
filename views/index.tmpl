@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Xadrez Multiplayer</title>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+      crossorigin="anonymous" />
+      <link rel="stylesheet" href="/public/assets/indexStyle.css">
+
+</head>
+<body>
+
+<header>
+  <h1>♟ Xadrez Multiplayer</h1>
+  <p>Go + WebSocket — tempo real</p>
+</header>
+
+<div class="main">
+  <div class="left-panel">
+    <div class="board-wrapper">
+      <div id="board"></div>
+      <div class="turn-indicator">
+        <div class="turn-dot" id="turnDot"></div>
+        <span id="turnText">—</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Posição</div>
+      <div class="mono-box" id="fen"><span>FEN</span> —</div>
+      <div style="height:8px"></div>
+      <div class="mono-box" id="pgn"><span>PGN</span> —</div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="card" id="loginCard">
+      <div class="card-title">Conta</div>
+      <button class="btn btn-login" id="loginBtn">🔐 Login</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Matchmaking</div>
+      <button class="btn btn-matchmaking" id="matchmakingBtn">
+        <div class="spinner" id="mmSpinner"></div>
+        <span id="mmBtnText">⚔ Buscar Partida</span>
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Entrar na Sala</div>
+      <div class="join-row">
+        <input type="text" id="roomInput" placeholder="Código da sala" />
+        <button class="btn btn-primary" id="joinBtn">Conectar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Status</div>
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="status">Digite o código e conecte-se</span>
+      </div>
+    </div>
+
+    <div class="card" id="playerCard" style="display:none">
+      <div class="card-title">Você joga como</div>
+      <div class="player-badge">
+        <div class="piece-icon" id="pieceIcon"></div>
+        <div class="player-info">
+          <div class="player-name" id="playerName">—</div>
+          <div class="player-role" id="playerRoleEl">Aguardando...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Ações</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-secondary" id="startBtn" disabled>▶ Iniciar / Reiniciar</button>
+        <div class="divider"></div>
+        <button class="btn btn-danger" id="resignBtn" disabled>🏳 Desistir</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Tempo</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="status-badge">♔ <span id="whiteTimer">5:00</span></div>
+        <div class="status-badge">♚ <span id="blackTimer">5:00</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de promoção -->
+<div class="promo-overlay" id="promoModal">
+  <div class="promo-box">
+    <div class="promo-title">Promover peão para:</div>
+    <div class="promo-options" id="promoOptions">
+      <button class="promo-btn" data-piece="q">♛</button>
+      <button class="promo-btn" data-piece="r">♜</button>
+      <button class="promo-btn" data-piece="b">♝</button>
+      <button class="promo-btn" data-piece="n">♞</button>
+    </div>
+  </div>
+</div>
+
+<!-- Libs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="/public/scripts/indexScript.js"></script>
+</body>
+</html>
