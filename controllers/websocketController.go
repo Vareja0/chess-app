@@ -87,7 +87,7 @@ func (g *Game) runTimer() {
 			return
 		case <-ticker.C:
 			g.mutex.Lock()
-			turn := g.chess.Position().Turn() // chess.White ou chess.Black
+			turn := g.chess.Position().Turn() 
 			idx := 0
 			if turn == chess.Black {
 				idx = 1
@@ -95,14 +95,12 @@ func (g *Game) runTimer() {
 
 			g.TimeLeft[idx] -= time.Second
 
-			// Envia o tempo atualizado para os dois jogadores
 			g.sendAll(map[string]interface{}{
 				"type":       "timer",
 				"white_time": int(g.TimeLeft[0].Seconds()),
 				"black_time": int(g.TimeLeft[1].Seconds()),
 			})
 
-			// Tempo esgotado
 			if g.TimeLeft[idx] <= 0 {
 				winner := "black"
 				if idx == 1 {
@@ -163,11 +161,9 @@ func HandleMatchmaking(c *gin.Context) {
 		return
 	}
 
-	// Tenta pegar um oponente da fila
 	opponentID, err := DequeuePlayer(ctx)
 
 	if err == redis.Nil || opponentID == 0 {
-		// Fila vazia — entra na fila e espera
 		EnqueuePlayer(ctx, user.ID)
 
 		err := UpdatePlayerStatus(ctx, user.ID, "in_queue")
@@ -176,7 +172,6 @@ func HandleMatchmaking(c *gin.Context) {
 			log.Print("erro ao update player status")
 		}
 
-		// Espera notificação de match
 		sub := SubscribeMatch(ctx, user.ID)
 		defer sub.Close()
 
@@ -201,7 +196,6 @@ func HandleMatchmaking(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "redis error"})
 		return
 	} else {
-		// Tem oponente — cria o jogo
 		colors := []chess.Color{chess.White, chess.Black}
 		rand.Shuffle(len(colors), func(i, j int) {
 			colors[i], colors[j] = colors[j], colors[i]
@@ -228,7 +222,6 @@ func HandleMatchmaking(c *gin.Context) {
 			URL:  "ws://localhost:3000/ws/" + id,
 		}
 
-		// Notifica o oponente
 		PublishMatch(ctx, opponentID, result)
 
 		UpdatePlayerRoom(ctx, user.ID, "in_game", id)
@@ -251,7 +244,6 @@ func HandleWebSocket(c *gin.Context) {
 
 	user := utils.GetUserId(c)
 
-	// Upgrade HTTP connection to WebSocket
 	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade connection: %v", err)
@@ -283,7 +275,6 @@ func HandleWebSocket(c *gin.Context) {
 
 	game.mutex.Unlock()
 
-	// Envia info inicial pro jogador
 	ws.WriteJSON(map[string]interface{}{
 		"type":    "joined",
 		"color":   player.Color.String(),
@@ -291,13 +282,11 @@ func HandleWebSocket(c *gin.Context) {
 		"message": "Conectado! Aguarde o adversário...",
 	})
 
-	// Notifica o outro se for o segundo jogador
 	game.broadcastExcept(ws, map[string]interface{}{
 		"type":    "opponent_joined",
 		"message": "Adversário conectado! Você pode iniciar.",
 	})
 
-	// WebSocket event loop
 	for {
 		_, message, err := ws.ReadMessage()
 		if err != nil {
@@ -416,12 +405,6 @@ func (g *Game) sendExcept(except *websocket.Conn, msg interface{}) {
 	}
 }
 
-func (g *Game) broadcast(msg interface{}) {
-	g.mutex.Lock()
-	defer g.mutex.Unlock()
-	g.sendAll(msg)
-}
-
 func (g *Game) broadcastExcept(except *websocket.Conn, msg interface{}) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -437,7 +420,6 @@ func (g *Game) removePlayer(conn *websocket.Conn) {
 			break
 		}
 	}
-	// Usa sendAll pois o mutex já está segurado
 	g.sendAll(map[string]string{"type": "opponent_disconnected", "message": "Adversário saiu"})
 }
 

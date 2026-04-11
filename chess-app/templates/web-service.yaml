@@ -1,13 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: web
-  namespace: chess-app
-
+  name: {{ .Release.Name }}-web
+  namespace: {{ .Release.Name }}
 spec:
   selector:
     app: web
   ports:
-  - port: 3000
-    targetPort: 3000
-  type: LoadBalancer
+  - port: {{ .Values.ginApp.port }}
+    targetPort: {{ .Values.ginApp.port }}
+  type: ClusterIP

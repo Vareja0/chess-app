@@ -1,0 +1,99 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: REPLACE_CLUSTER_NAME
+spec:
+  cloudProvider: gce
+  project: REPLACE_PROJECT_ID
+  kubernetesVersion: "1.30.0"
+
+  configBase: REPLACE_STATE_BUCKET/REPLACE_CLUSTER_NAME
+
+  dnsZone: REPLACE_CLUSTER_NAME
+
+  networking:
+    calico: {}
+
+  nonMasqueradeCIDR: 100.64.0.0/10
+
+  subnets:
+  - name: REPLACE_REGION
+    region: REPLACE_REGION
+    type: Public
+
+  topology:
+    masters: public
+    nodes: public
+    dns:
+      type: None
+
+  api:
+    loadBalancer:
+      type: Public
+
+  etcdClusters:
+  - name: main
+    etcdMembers:
+    - name: a
+      instanceGroup: master
+    cpuRequest: 200m
+    memoryRequest: 100Mi
+  - name: events
+    etcdMembers:
+    - name: a
+      instanceGroup: master
+    cpuRequest: 100m
+    memoryRequest: 100Mi
+
+  authorization:
+    rbac: {}
+
+  # CIDRs allowed to reach the Kubernetes API (port 443) and SSH (port 22)
+  kubernetesAPIAccess:
+  - 0.0.0.0/0
+  sshAccess:
+  - 0.0.0.0/0
+
+  kubelet:
+    anonymousAuth: false
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master
+  labels:
+    kops.k8s.io/cluster: REPLACE_CLUSTER_NAME
+spec:
+  role: Master
+  machineType: e2-medium
+  image: ubuntu-os-cloud/ubuntu-2204-jammy-v20260313
+  minSize: 1
+  maxSize: 1
+  subnets:
+  - REPLACE_REGION
+  zones:
+  - REPLACE_ZONE
+  nodeLabels:
+    kops.k8s.io/instancegroup: master
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: nodes
+  labels:
+    kops.k8s.io/cluster: REPLACE_CLUSTER_NAME
+spec:
+  role: Node
+  machineType: e2-medium
+  image: ubuntu-os-cloud/ubuntu-2204-jammy-v20260313
+  minSize: 1
+  maxSize: 1
+  preemptible: true
+  subnets:
+  - REPLACE_REGION
+  zones:
+  - REPLACE_ZONE
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes

@@ -161,6 +161,7 @@ postgres:
   image: postgres:16-alpine
   port: 5432
   storage: 5Gi
+  storageClass: standard-rwo
   database: chess
   username: CHANGE_ME
   password: CHANGE_ME
@@ -186,4 +187,5 @@ redis:
 
 ingress:
   enabled: true
+  host: ""
   tls: false

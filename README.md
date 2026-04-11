@@ -43,23 +43,6 @@ A real-time multiplayer chess application with JWT authentication, built with Go
 └── docker-compose.yaml
 ```
 
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Server port |
-| `DB_HOST` | PostgreSQL host |
-| `DB_NAME` | Database name |
-| `DB_USER` | Database user |
-| `DB_PASSWORD` | Database password |
-| `SECRET_KEY` | JWT access token signing key |
-| `REFRESH_SECRET_KEY` | JWT refresh token signing key |
-| `REDIS_HOST` | Redis host |
-| `REDIS_PORT` | Redis port |
-| `REDIS_PASSWORD` | Redis password |
-
-Create a `.env` file at the project root with these values for local development.
-
 ## Running Locally
 
 ### Docker Compose
