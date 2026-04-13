@@ -138,3 +138,19 @@
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
     }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 12px;
+        align-items: flex-start;
+        padding-top: 40px;
+      }
+
+      .login-container {
+        padding: 2rem 1.25rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+    }

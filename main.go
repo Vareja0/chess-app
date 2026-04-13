@@ -40,5 +40,5 @@ func main() {
 		game.POST("/matchmaking/cancel", controllers.HandleCancelMatchmaking)
 	}
 
-	r.Run()
+	r.Run("0.0.0.0:3000")
 }
