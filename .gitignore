@@ -49,3 +49,16 @@ chess-app/Chart.lock
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+# Design reference (not part of the codebase)
+stitch/
+
+# Terraform state and local data
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.d/
+.terraform/
+.terraform.lock.hcl
+*.tfplan
+*.tfvars
+!*.tfvars.example
