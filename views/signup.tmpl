@@ -1,91 +1,195 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html class="dark" lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Criar Conta | Xadrez Multiplayer</title>
-  <link rel="stylesheet" href="../public/assets/signupStyle.css">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>The Grandmaster - Criar Conta</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  </style>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-primary-container": "#56a555",
+            "on-secondary": "#412d00",
+            "on-error-container": "#ffdad6",
+            "surface-variant": "#2a363d",
+            "background": "#09151a",
+            "secondary": "#e9c176",
+            "on-primary-fixed-variant": "#005312",
+            "tertiary-fixed": "#ece0dc",
+            "on-tertiary-fixed": "#201a18",
+            "surface-container-highest": "#2a363d",
+            "surface-container-high": "#202c32",
+            "surface-container-lowest": "#041015",
+            "error-container": "#93000a",
+            "on-error": "#690005",
+            "primary-fixed-dim": "#88d982",
+            "tertiary-fixed-dim": "#cfc4c0",
+            "surface-container": "#152127",
+            "on-surface-variant": "#d3c3c0",
+            "on-tertiary": "#352f2d",
+            "surface-tint": "#88d982",
+            "surface-dim": "#09151a",
+            "surface-bright": "#2f3b41",
+            "primary-fixed": "#a3f69c",
+            "inverse-surface": "#d7e4ec",
+            "surface-container-low": "#111d23",
+            "outline": "#9c8d8b",
+            "on-secondary-fixed": "#261900",
+            "on-background": "#d7e4ec",
+            "on-tertiary-fixed-variant": "#4c4542",
+            "on-tertiary-container": "#9c938f",
+            "on-secondary-container": "#dab36a",
+            "on-primary-fixed": "#002204",
+            "tertiary-container": "#322c29",
+            "error": "#ffb4ab",
+            "secondary-fixed-dim": "#e9c176",
+            "on-surface": "#d7e4ec",
+            "secondary-fixed": "#ffdea5",
+            "on-secondary-fixed-variant": "#5d4201",
+            "inverse-on-surface": "#263238",
+            "tertiary": "#cfc4c0",
+            "primary-container": "#003508",
+            "surface": "#09151a",
+            "secondary-container": "#604403",
+            "primary": "#88d982",
+            "inverse-primary": "#1b6d24",
+            "on-primary": "#003909",
+            "outline-variant": "#504442"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          fontFamily: {
+            "headline": ["Noto Serif", "serif"],
+            "body": ["Inter", "sans-serif"],
+            "label": ["Inter", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col justify-center items-center p-4">
 
-  <div class="card">
-    <div class="logo">
-      <span class="logo-icon">♟</span>
-      <h1>Criar Conta</h1>
-      <p>Junte-se ao Xadrez Multiplayer</p>
-    </div>
-
-    <form id="signupForm">
-      <div class="form-group">
-        <label for="username">Nome de usuário</label>
-        <input
-          type="text"
-          id="username"
-          name="username"
-          placeholder="ex: magnus123"
-          required
-          autocomplete="username"
-        />
-        <div class="field-hint" id="usernameHint"></div>
-      </div>
-
-      <div class="form-group">
-        <label for="email">E-mail</label>
-        <input
-          type="email"
-          id="email"
-          name="email"
-          placeholder="seu@email.com"
-          required
-          autocomplete="email"
-        />
-        <div class="field-hint" id="emailHint"></div>
-      </div>
-
-      <div class="form-group">
-        <label for="password">Senha</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          placeholder="••••••••"
-          required
-          autocomplete="new-password"
-        />
-        <div class="strength-bar">
-          <div id="s1"></div>
-          <div id="s2"></div>
-          <div id="s3"></div>
-          <div id="s4"></div>
-        </div>
-        <div class="field-hint" id="passwordHint"></div>
-      </div>
-
-      <div class="form-group">
-        <label for="confirmPassword">Confirmar senha</label>
-        <input
-          type="password"
-          id="confirmPassword"
-          name="confirmPassword"
-          placeholder="••••••••"
-          required
-          autocomplete="new-password"
-        />
-        <div class="field-hint" id="confirmHint"></div>
-      </div>
-
-      <button type="submit" class="btn btn-primary" id="btnSubmit">Criar Conta</button>
-
-      <div class="message error" id="errorMsg"></div>
-      <div class="message success" id="successMsg"></div>
-    </form>
-
-    <div class="divider">já tem conta?</div>
-
-    <div class="footer-link">
-      <a href="/login">Entrar na minha conta</a>
-    </div>
+  <!-- Ambient background -->
+  <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+    <div class="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-[100px]"></div>
+    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-surface-container-lowest/80 to-transparent"></div>
   </div>
-<script src="../public/scripts/signupScript.js"></script>
+
+  <main class="relative z-10 w-full max-w-md">
+    <header class="text-center mb-8">
+      <h1 class="font-headline text-3xl font-bold text-inverse-surface tracking-tight">The Grandmaster</h1>
+      <p class="font-body text-sm text-outline mt-2 tracking-wide">EDITORIAL</p>
+    </header>
+
+    <div class="bg-surface-container-low rounded-xl p-8 shadow-[0_20px_40px_-15px_rgba(4,16,21,0.6)] border border-surface-variant/20 relative overflow-hidden backdrop-blur-md">
+      <div class="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none"></div>
+
+      <h2 class="font-headline text-2xl text-secondary mb-6 text-center">Criar Conta</h2>
+
+      <form id="signupForm" class="space-y-5 relative z-10">
+        <!-- Nome de usuário -->
+        <div>
+          <label class="block font-label text-sm text-on-surface-variant mb-1 ml-1" for="username">Nome de usuário</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-outline text-lg">person</span>
+            </div>
+            <input
+              class="block w-full pl-10 pr-3 py-2.5 bg-surface-container-highest/50 border-transparent rounded-lg text-on-surface placeholder-outline focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface-container-highest transition-colors duration-200"
+              id="username" name="username" placeholder="ex: magnus123" type="text" required autocomplete="username"/>
+          </div>
+          <div class="field-hint text-xs mt-1 ml-1 text-on-surface-variant/70" id="usernameHint"></div>
+        </div>
+
+        <!-- E-mail -->
+        <div>
+          <label class="block font-label text-sm text-on-surface-variant mb-1 ml-1" for="email">E-mail</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-outline text-lg">mail</span>
+            </div>
+            <input
+              class="block w-full pl-10 pr-3 py-2.5 bg-surface-container-highest/50 border-transparent rounded-lg text-on-surface placeholder-outline focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface-container-highest transition-colors duration-200"
+              id="email" name="email" placeholder="seu@email.com" type="email" required autocomplete="email"/>
+          </div>
+          <div class="field-hint text-xs mt-1 ml-1 text-on-surface-variant/70" id="emailHint"></div>
+        </div>
+
+        <!-- Senha -->
+        <div>
+          <label class="block font-label text-sm text-on-surface-variant mb-1 ml-1" for="password">Senha</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-outline text-lg">lock</span>
+            </div>
+            <input
+              class="block w-full pl-10 pr-3 py-2.5 bg-surface-container-highest/50 border-transparent rounded-lg text-on-surface placeholder-outline focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface-container-highest transition-colors duration-200"
+              id="password" name="password" placeholder="••••••••" type="password" required autocomplete="new-password"/>
+          </div>
+          <div class="strength-bar flex gap-1 mt-2">
+            <div id="s1" class="h-1 flex-1 rounded-full bg-surface-variant transition-colors duration-300"></div>
+            <div id="s2" class="h-1 flex-1 rounded-full bg-surface-variant transition-colors duration-300"></div>
+            <div id="s3" class="h-1 flex-1 rounded-full bg-surface-variant transition-colors duration-300"></div>
+            <div id="s4" class="h-1 flex-1 rounded-full bg-surface-variant transition-colors duration-300"></div>
+          </div>
+          <div class="field-hint text-xs mt-1 ml-1 text-on-surface-variant/70" id="passwordHint"></div>
+        </div>
+
+        <!-- Confirmar senha -->
+        <div>
+          <label class="block font-label text-sm text-on-surface-variant mb-1 ml-1" for="confirmPassword">Confirmar senha</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span class="material-symbols-outlined text-outline text-lg">lock_reset</span>
+            </div>
+            <input
+              class="block w-full pl-10 pr-3 py-2.5 bg-surface-container-highest/50 border-transparent rounded-lg text-on-surface placeholder-outline focus:ring-1 focus:ring-primary focus:border-primary focus:bg-surface-container-highest transition-colors duration-200"
+              id="confirmPassword" name="confirmPassword" placeholder="••••••••" type="password" required autocomplete="new-password"/>
+          </div>
+          <div class="field-hint text-xs mt-1 ml-1 text-on-surface-variant/70" id="confirmHint"></div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="message error text-error text-sm font-body" id="errorMsg"></div>
+        <div class="message success text-primary text-sm font-body" id="successMsg"></div>
+
+        <!-- Submit -->
+        <div class="pt-4">
+          <button
+            id="btnSubmit"
+            class="w-full flex justify-center py-3 px-4 rounded-lg bg-gradient-to-br from-primary to-primary-container text-on-primary font-medium hover:from-primary-fixed hover:to-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface focus:ring-primary transition-all duration-300 relative overflow-hidden group shadow-lg"
+            type="submit">
+            <div class="absolute inset-0 bg-white/10 w-full h-full transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out"></div>
+            <span class="relative z-10 flex items-center gap-2">
+              Criar Conta
+              <span class="material-symbols-outlined text-sm">arrow_forward</span>
+            </span>
+          </button>
+        </div>
+      </form>
+
+      <div class="mt-6 text-center">
+        <p class="text-sm font-label text-on-surface-variant">
+          Já tem conta?
+          <a class="font-medium text-secondary hover:text-secondary-fixed transition-colors duration-200 ml-1" href="/login">Entrar na minha conta</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <script src="/public/scripts/signupScript.js"></script>
 </body>
 </html>

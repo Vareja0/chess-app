@@ -14,53 +14,64 @@ import (
 	"github.com/vareja0/go-jwt/models"
 )
 
-func RequireAuth(c *gin.Context) {
+// authenticate validates the JWT cookie and populates c "user".
+// Returns true on success, false if the request should be aborted.
+func authenticate(c *gin.Context) bool {
 	ctx := context.Background()
-	tokenString, err := c.Cookie("Authorization")
 
+	tokenString, err := c.Cookie("Authorization")
 	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		log.Print("ERRO MID PARSE")
-		return
+		log.Print("ERRO MID COOKIE")
+		return false
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
-
 		return []byte(os.Getenv("SECRET_KEY")), nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-
 	if err != nil {
-		c.AbortWithStatus(http.StatusUnauthorized)
 		log.Print("ERRO MID PARSE")
+		return false
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Print("ERRO MID CLAIM ERRADA")
+		return false
+	}
+
+	if float64(time.Now().Unix()) > claims["exp"].(float64) {
+		return false
+	}
+
+	var user models.User
+	initializers.DB.First(&user, claims["sub"])
+	if user.ID == 0 {
+		log.Print("ERRO MID NO USER")
+		return false
+	}
+
+	c.Set("user", user)
+	controllers.AddIfNotExists(ctx, user.ID)
+	return true
+}
+
+// RequireAuth protects API routes — returns 401 on failure.
+func RequireAuth(c *gin.Context) {
+	if !authenticate(c) {
+		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+	c.Next()
+}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok {
-		if float64(time.Now().Unix()) > claims["exp"].(float64) {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		var user models.User
-		initializers.DB.First(&user, claims["sub"])
-
-		if user.ID == 0 {
-			c.AbortWithStatus(http.StatusUnauthorized)
-			log.Print("ERRO MID NO USER")
-			return
-		}
-
-		c.Set("user", user)
-		controllers.AddIfNotExists(ctx, user.ID)
-
-		c.Next()
-
-	} else {
-		c.AbortWithStatus(http.StatusUnauthorized)
-		log.Print("ERRO MID CLAIM ERRADA")
-
+// RequireAuthPage protects page routes — redirects to /login on failure.
+func RequireAuthPage(c *gin.Context) {
+	if !authenticate(c) {
+		c.Redirect(http.StatusFound, "/login")
+		c.Abort()
+		return
 	}
-
+	c.Next()
 }
 
 func Refresh(c *gin.Context) {

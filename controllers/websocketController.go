@@ -7,6 +7,8 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,13 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/vareja0/go-jwt/utils"
 )
+
+func wsBaseURL() string {
+	base := strings.TrimRight(os.Getenv("APP_BASE_URL"), "/")
+	base = strings.Replace(base, "https://", "wss://", 1)
+	base = strings.Replace(base, "http://", "ws://", 1)
+	return base
+}
 
 type Message struct {
 	Type      string `json:"type"`
@@ -156,7 +165,7 @@ func HandleMatchmaking(c *gin.Context) {
 		}
 		c.JSON(200, gin.H{
 			"room": room,
-			"url":  "ws://localhost:3000/ws/" + room,
+			"url":  wsBaseURL() + "/ws/" + room,
 		})
 		return
 	}
@@ -219,7 +228,7 @@ func HandleMatchmaking(c *gin.Context) {
 
 		result := MatchmakingResult{
 			Room: id,
-			URL:  "ws://localhost:3000/ws/" + id,
+			URL:  wsBaseURL() + "/ws/" + id,
 		}
 
 		PublishMatch(ctx, opponentID, result)

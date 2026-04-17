@@ -149,6 +149,13 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #2a363d; border-radius: 2px; }
 
+/* ─── Mobile touch — prevent page scroll during piece drag ── */
+
+#board,
+#board * {
+  touch-action: none;
+}
+
 /* ─── Responsive ──────────────────────────────────── */
 
 @media (max-width: 640px) {

@@ -1,54 +1,160 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html class="dark" lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login | Minha Aplicação</title>
-  <link rel="stylesheet" href="../public/assets/loginStyle.css">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Login - The Grandmaster</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Serif:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  </style>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "on-tertiary-container": "#9c938f",
+            "on-secondary-container": "#dab36a",
+            "outline": "#9c8d8b",
+            "surface-dim": "#09151a",
+            "surface-container-high": "#202c32",
+            "surface-container-lowest": "#041015",
+            "surface-bright": "#2f3b41",
+            "background": "#09151a",
+            "error": "#ffb4ab",
+            "on-primary-fixed-variant": "#005312",
+            "inverse-surface": "#d7e4ec",
+            "tertiary": "#cfc4c0",
+            "on-primary-container": "#56a555",
+            "inverse-primary": "#1b6d24",
+            "secondary-fixed-dim": "#e9c176",
+            "surface-container-low": "#111d23",
+            "on-surface-variant": "#d3c3c0",
+            "surface-tint": "#88d982",
+            "secondary-fixed": "#ffdea5",
+            "on-primary-fixed": "#002204",
+            "on-background": "#d7e4ec",
+            "surface": "#09151a",
+            "on-primary": "#003909",
+            "tertiary-fixed": "#ece0dc",
+            "tertiary-container": "#322c29",
+            "on-tertiary-fixed-variant": "#4c4542",
+            "on-tertiary-fixed": "#201a18",
+            "outline-variant": "#504442",
+            "surface-variant": "#2a363d",
+            "surface-container-highest": "#2a363d",
+            "on-error": "#690005",
+            "on-surface": "#d7e4ec",
+            "error-container": "#93000a",
+            "primary-fixed": "#a3f69c",
+            "tertiary-fixed-dim": "#cfc4c0",
+            "secondary": "#e9c176",
+            "primary-fixed-dim": "#88d982",
+            "inverse-on-surface": "#263238",
+            "surface-container": "#152127",
+            "primary": "#88d982",
+            "on-secondary": "#412d00",
+            "on-error-container": "#ffdad6",
+            "on-tertiary": "#352f2d",
+            "secondary-container": "#604403",
+            "on-secondary-fixed-variant": "#5d4201",
+            "primary-container": "#003508",
+            "on-secondary-fixed": "#261900"
+          },
+          borderRadius: {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          fontFamily: {
+            "headline": ["Noto Serif", "serif"],
+            "body": ["Inter", "sans-serif"],
+            "label": ["Inter", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
 </head>
-<body>
+<body class="bg-background text-on-background font-body min-h-screen flex flex-col antialiased">
 
-  <div class="login-container">
-    <h1>Entrar
-      {{ if .Success }} — {{ .Success }}{{ end }}
-      
-    </h1>
+  <main class="flex-grow flex items-center justify-center p-4 md:p-8 relative overflow-hidden">
+    <div class="absolute inset-0 z-0 pointer-events-none opacity-20"
+         style="background-image: radial-gradient(circle at 50% 30%, #2a363d, transparent 60%);"></div>
+    <div class="absolute inset-0 z-0 pointer-events-none opacity-10 bg-cover bg-center mix-blend-overlay"
+         style="background-image: url('https://images.unsplash.com/photo-1586155638764-bf045442f5f3?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80');"></div>
 
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="email">E-mail</label>
-        <input 
-          type="email" 
-          id="email" 
-          name="email" 
-          placeholder="seu@email.com" 
-          required 
-          autocomplete="email"
-        >
+    <div class="relative z-10 w-full max-w-md bg-surface-container-low rounded-lg p-8 md:p-12 shadow-[0_20px_40px_-15px_rgba(4,16,21,0.6)] border border-outline-variant/15 backdrop-blur-md">
+      <div class="text-center mb-10">
+        <h1 class="font-headline text-3xl md:text-4xl text-on-surface font-semibold tracking-tight mb-2">
+          Entrar{{ if .Success }} <span class="text-primary text-xl font-body font-normal">— {{ .Success }}</span>{{ end }}
+        </h1>
+        <p class="font-body text-sm text-on-surface-variant">The Grandmaster Editorial</p>
       </div>
 
-      <div class="form-group">
-        <label for="password">Senha</label>
-        <input 
-          type="password" 
-          id="password" 
-          name="password" 
-          placeholder="••••••••" 
-          required 
-          autocomplete="current-password"
-        >
+      <form id="loginForm" class="space-y-6">
+        <!-- Email -->
+        <div class="space-y-2">
+          <label class="block font-label text-sm font-medium text-on-surface-variant" for="email">Email</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xl pointer-events-none">mail</span>
+            <input
+              class="w-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface rounded-DEFAULT pl-10 pr-4 py-3 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors duration-200 font-body"
+              id="email" name="email" placeholder="nome@exemplo.com" type="email" required autocomplete="email"/>
+          </div>
+        </div>
+
+        <!-- Senha -->
+        <div class="space-y-2">
+          <label class="block font-label text-sm font-medium text-on-surface-variant" for="password">Senha</label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 text-xl pointer-events-none">lock</span>
+            <input
+              class="w-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface rounded-DEFAULT pl-10 pr-10 py-3 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors duration-200 font-body"
+              id="password" name="password" placeholder="••••••••" type="password" required autocomplete="current-password"/>
+            <button class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-on-surface transition-colors focus:outline-none"
+                    type="button" onclick="const i=document.getElementById('password');i.type=i.type==='password'?'text':'password'">
+              <span class="material-symbols-outlined text-xl">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="error-message text-error text-sm font-body" id="errorMsg"></div>
+        <div class="success-message text-primary text-sm font-body" id="successMsg"></div>
+
+        <!-- Actions -->
+        <div class="pt-2 space-y-4">
+          <button
+            id="btnSubmit"
+            class="w-full bg-primary text-on-primary rounded-md py-3 font-label font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] hover:bg-primary-fixed transition-colors duration-200 flex justify-center items-center gap-2"
+            type="submit">
+            <span>Entrar</span>
+            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+          </button>
+          <button
+            class="w-full bg-surface-container-high text-on-surface border border-outline-variant/15 rounded-md py-3 font-label font-medium hover:bg-surface-variant transition-colors duration-200"
+            type="button" onclick="window.location.href='/signup'">
+            Criar conta
+          </button>
+        </div>
+      </form>
+
+      <div class="mt-8 pt-6 border-t border-outline-variant/15 text-center">
+        <p class="font-body text-xs text-on-surface-variant/60">
+          Ao entrar, você concorda com nossos
+          <a class="text-on-surface-variant hover:text-on-surface transition-colors underline decoration-outline-variant/30 underline-offset-2" href="#">Termos</a>
+          e
+          <a class="text-on-surface-variant hover:text-on-surface transition-colors underline decoration-outline-variant/30 underline-offset-2" href="#">Privacidade</a>.
+        </p>
       </div>
+    </div>
+  </main>
 
-      <button type="submit" class="btn-login" id="btnSubmit">Entrar</button>
-
-      <div class="error-message" id="errorMsg"></div>
-      <div class="success-message" id="successMsg"></div>
-    </form>
-
-    <div class="divider">não tem conta?</div>
-    <button class="btn-signup" onclick="window.location.href='/signup'">Criar conta</button>
-  </div>
-<script src="../public/scripts/loginScript.js"></script>
+  <script src="/public/scripts/loginScript.js"></script>
 </body>
 </html>
-

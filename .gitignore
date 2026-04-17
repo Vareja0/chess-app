@@ -53,6 +53,12 @@ Thumbs.db
 # Design reference (not part of the codebase)
 stitch/
 
+# Claude project context files
+ARCHITECTURE.md
+CLAUDE.md
+REQUIREMENTS.md
+TECH_STACK.md
+
 # Terraform state and local data
 terraform.tfstate
 terraform.tfstate.backup

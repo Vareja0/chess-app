@@ -310,6 +310,14 @@ const config = {
 board = Chessboard('board', config);
 updateStatus();
 
+// Prevent page scroll while dragging a piece on touch devices
+const boardEl = document.getElementById('board');
+let draggingPiece = false;
+
+boardEl.addEventListener('touchstart', () => { draggingPiece = true; }, { passive: true });
+boardEl.addEventListener('touchend',   () => { draggingPiece = false; });
+boardEl.addEventListener('touchmove',  (e) => { if (draggingPiece) e.preventDefault(); }, { passive: false });
+
 // Conectar automaticamente se tiver room na URL
 const params = new URLSearchParams(window.location.search);
 const roomFromURL = params.get('room');

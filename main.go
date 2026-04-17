@@ -30,14 +30,18 @@ func main() {
 	r.POST("/login", controllers.Login)
 	r.POST("/signup", controllers.Signup)
 	r.POST("/refresh", middleware.Refresh)
+	r.POST("/logout", controllers.Logout)
 
-	// Game (requires auth)
-	game := r.Group("/", middleware.RequireAuth)
+	// Protected page routes (redirect to /login on failure)
+	r.GET("/profile", middleware.RequireAuthPage, controllers.GetProfile)
+
+	// Protected API/game routes (return 401 on failure)
+	protected := r.Group("/", middleware.RequireAuth)
 	{
-		game.GET("/create", controllers.CreateGame)
-		game.GET("/ws/:room", controllers.HandleWebSocket)
-		game.POST("/matchmaking", controllers.HandleMatchmaking)
-		game.POST("/matchmaking/cancel", controllers.HandleCancelMatchmaking)
+		protected.GET("/create", controllers.CreateGame)
+		protected.GET("/ws/:room", controllers.HandleWebSocket)
+		protected.POST("/matchmaking", controllers.HandleMatchmaking)
+		protected.POST("/matchmaking/cancel", controllers.HandleCancelMatchmaking)
 	}
 
 	r.Run("0.0.0.0:3000")
