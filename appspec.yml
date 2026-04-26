@@ -3,16 +3,15 @@ os: linux
 files:
   - source: docker-compose.prod.yml
     destination: /opt/chess-app/
+    overwrite: true
   - source: views/
     destination: /opt/chess-app/views/
+    overwrite: true
   - source: public/
     destination: /opt/chess-app/public/
+    overwrite: true
 
 permissions:
-  - object: /opt/chess-app/chess-app-binary
-    mode: "0755"
-    owner: ec2-user
-    group: ec2-user
   - object: /opt/chess-app/
     mode: "0755"
     owner: ec2-user
