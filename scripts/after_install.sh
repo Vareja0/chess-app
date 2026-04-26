@@ -3,20 +3,23 @@
 set -e
 
 REGION="us-east-1"
-ENV="${ENVIRONMENT:-production}"
+ENV="prod"
 APP_DIR="/opt/chess-app"
 
+SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id "${ENV}/chess-app" \
+  --query SecretString \
+  --output text)
+
 get_secret() {
-  aws secretsmanager get-secret-value \
-    --region "$REGION" \
-    --secret-id "chess-app/${ENV}/$1" \
-    --query SecretString \
-    --output text
+  echo "$SECRET" | jq -r ".[\"$1\"]"
 }
 
 echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "db-password")
-JWT_SECRET=$(get_secret "jwt-secret")
+REFRESH_SECRET_KEY=$(get_secret "refresh-secret-key")
+SECRET_KEY=$(get_secret "secret-key")
 DOMAIN=$(get_secret "domain")
 DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
 
@@ -24,8 +27,8 @@ DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
 echo "=== Escrevendo .env ==="
 DOCKERHUB_USERNAME=$(aws secretsmanager get-secret-value \
   --region "$REGION" \
-  --secret-id "chess-app/dockerhub-username" \
-  --query SecretString --output text)
+  --secret-id "prod/chess-app" \
+  --query SecretString --output text | jq -r '."chess-app/dockerhub-username"')
 
 # Login no DockerHub para poder fazer pull de imagens privadas (se necessário)
 echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
