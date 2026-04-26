@@ -7,7 +7,10 @@ COPY . .
 RUN go build -o main .
 
 FROM alpine:3.19
+RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /app
-COPY . .
+COPY --from=builder /app/main .
+COPY views/ views/
+COPY public/ public/
 EXPOSE 3000
 ENTRYPOINT ["./main"]
