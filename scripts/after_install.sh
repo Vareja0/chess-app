@@ -7,14 +7,15 @@ ENV="${ENVIRONMENT:-production}"
 
 APP_DIR="/opt/chess-app"
  
-get_secret() {
-  aws secretsmanager get-secret-value \
-    --region "$REGION" \
-    --secret-id "chess-app/${ENV}/$1" \
-    --query SecretString \
-    --output text
-}
+SECRET=$(aws secretsmanager get-secret-value \
+  --region "$REGION" \
+  --secret-id "${ENV}/chess-app" \
+  --query SecretString \
+  --output text)
 
+get_secret() {
+  echo "$SECRET" | jq -r ".[\"$1\"]"
+}
 echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "db-password")
 JWT_SECRET=$(get_secret "jwt-secret")
