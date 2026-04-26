@@ -9,7 +9,7 @@ APP_DIR="/opt/chess-app"
 # ── Buscar todos os secrets de uma vez ───────────────────────
 echo "=== Buscando secrets ==="
 SECRET=$(aws secretsmanager get-secret-value \
-  --region "$REGION" \
+  --region "us-east-1" \
   --secret-id "${ENV}/chess-app" \
   --query SecretString \
   --output text)
