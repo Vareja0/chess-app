@@ -13,7 +13,7 @@ if [ -z "$REGION" ]; then
   echo "Erro: Não foi possível obter a AWS Region do EC2 metadata." >&2
   exit 1
 fi
-ENV="${ENVIRONMENT:-production}"
+ENV="${ENVIRONMENT:-prod}"
 
 APP_DIR="/opt/chess-app"
  
@@ -28,16 +28,14 @@ get_secret() {
 }
 echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "db-password")
-JWT_SECRET=$(get_secret "jwt-secret")
+REFRESH_SECRET_TOKEN=$(get_secret "refresh-secret-token")
+SECRET_TOKEN=$(get_secret "secret-token")
 DOMAIN=$(get_secret "domain")
 DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
 
 # ── .env lido pelo Docker Compose ────────────────────────────
 echo "=== Escrevendo .env ==="
-DOCKERHUB_USERNAME=$(aws secretsmanager get-secret-value \
-  --region "$REGION" \
-  --secret-id "chess-app/dockerhub-username" \
-  --query SecretString --output text)
+DOCKERHUB_USERNAME=$(get_secret "chess-app/dockerhub-username")
 
 # Login no DockerHub para poder fazer pull de imagens privadas (se necessário)
 echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
