@@ -4,6 +4,8 @@ services:
     container_name: chess-app
     env_file:
       - .env
+    volumes:
+      - /opt/chess-app/.env:/app/.env
     environment:
       GIN_MODE: release
     depends_on:
