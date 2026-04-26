@@ -2,7 +2,7 @@
 # after_install.sh
 set -e
 
-REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+REGION="us-east-1"
 ENV="${ENVIRONMENT:-production}"
 APP_DIR="/opt/chess-app"
 
