@@ -14,8 +14,6 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
-    networks:
-      - internal
     logging:
       driver: json-file
       options:
@@ -39,8 +37,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    networks:
-      - internal
     logging:
       driver: json-file
       options:
@@ -66,8 +62,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    networks:
-      - internal
     logging:
       driver: json-file
       options:
@@ -76,10 +70,4 @@ services:
 
 volumes:
   pgdata:
-    driver: local
   redis-data:
-    driver: local
-
-networks:
-  internal:
-    driver: bridge
