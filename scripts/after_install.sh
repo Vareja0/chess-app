@@ -2,29 +2,21 @@
 # after_install.sh
 set -euo pipefail
 
-REGION="us-east-1"
-ENV="prod"
 APP_DIR="/opt/chess-app"
 
 # ── Buscar todos os secrets de uma vez ───────────────────────
-echo "=== Buscando secrets ==="
+ENV="prod"
+REGION="us-east-1"
+
+export AWS_DEFAULT_REGION="$REGION"
+export AWS_REGION="$REGION"
+
 SECRET=$(aws secretsmanager get-secret-value \
-  --region "us-east-1" \
+  --region "$REGION" \
+  --endpoint-url "https://secretsmanager.${REGION}.amazonaws.com" \
   --secret-id "${ENV}/chess-app" \
   --query SecretString \
   --output text)
-
-get_secret() {
-  local key="$1"
-  local val
-  val=$(echo "$SECRET" | jq -r ".[\"$key\"]")
-  if [ -z "$val" ] || [ "$val" = "null" ]; then
-    echo "ERRO: secret '$key' não encontrado ou nulo" >&2
-    exit 1
-  fi
-  echo "$val"
-}
-
 DB_PASSWORD=$(get_secret "db-password")
 REFRESH_SECRET_KEY=$(get_secret "refresh-secret-key")
 SECRET_KEY=$(get_secret "secret-key")
