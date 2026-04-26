@@ -1,11 +1,13 @@
 #!/bin/bash
 # after_install.sh
-set -e
+set -euo pipefail
 
 REGION="us-east-1"
 ENV="prod"
 APP_DIR="/opt/chess-app"
 
+# ── Buscar todos os secrets de uma vez ───────────────────────
+echo "=== Buscando secrets ==="
 SECRET=$(aws secretsmanager get-secret-value \
   --region "$REGION" \
   --secret-id "${ENV}/chess-app" \
@@ -13,26 +15,29 @@ SECRET=$(aws secretsmanager get-secret-value \
   --output text)
 
 get_secret() {
-  echo "$SECRET" | jq -r ".[\"$1\"]"
+  local key="$1"
+  local val
+  val=$(echo "$SECRET" | jq -r ".[\"$key\"]")
+  if [ -z "$val" ] || [ "$val" = "null" ]; then
+    echo "ERRO: secret '$key' não encontrado ou nulo" >&2
+    exit 1
+  fi
+  echo "$val"
 }
 
-echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "db-password")
 REFRESH_SECRET_KEY=$(get_secret "refresh-secret-key")
 SECRET_KEY=$(get_secret "secret-key")
 DOMAIN=$(get_secret "domain")
 DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
+DOCKERHUB_USERNAME=$(get_secret "chess-app/dockerhub-username")
 
-# ── .env lido pelo Docker Compose ────────────────────────────
-echo "=== Escrevendo .env ==="
-DOCKERHUB_USERNAME=$(aws secretsmanager get-secret-value \
-  --region "$REGION" \
-  --secret-id "prod/chess-app" \
-  --query SecretString --output text | jq -r '."chess-app/dockerhub-username"')
-
-# Login no DockerHub para poder fazer pull de imagens privadas (se necessário)
+# ── Login no DockerHub ────────────────────────────────────────
+echo "=== Login no DockerHub ==="
 echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
+# ── Escrever .env lido pelo Docker Compose ───────────────────
+echo "=== Escrevendo .env ==="
 cat > "${APP_DIR}/.env" <<EOF
 PORT=3000
 GIN_MODE=release
@@ -50,8 +55,13 @@ POSTGRES_DB=chess
 DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}
 IMAGE_TAG=latest
 EOF
+
 chmod 600 "${APP_DIR}/.env"
 chown ec2-user:ec2-user "${APP_DIR}/.env"
+
+# ── Pull das imagens mais recentes ───────────────────────────
+echo "=== Atualizando imagens Docker ==="
+docker compose -f "${APP_DIR}/docker-compose.prod.yml" pull
 
 # ── Systemd gerencia o docker compose ────────────────────────
 echo "=== Configurando systemd ==="
@@ -74,16 +84,17 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 EOF
+
 systemctl daemon-reload
 systemctl enable chess-app
+systemctl start chess-app
 
 # ── nginx reverse proxy ───────────────────────────────────────
 echo "=== Configurando nginx ==="
-DOMAIN_VAL="$DOMAIN"
 cat > /etc/nginx/conf.d/chess-app.conf <<EOF
 server {
     listen 80;
-    server_name ${DOMAIN_VAL};
+    server_name ${DOMAIN};
 
     location /.well-known/acme-challenge/ {
         root /var/www/html;
@@ -105,16 +116,19 @@ EOF
 
 nginx -t && systemctl restart nginx
 
-if [ ! -f "/etc/letsencrypt/live/${DOMAIN_VAL}/fullchain.pem" ]; then
+# ── Certificado Let's Encrypt ─────────────────────────────────
+if [ ! -f "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" ]; then
   echo "=== Obtendo certificado Let's Encrypt ==="
   certbot --nginx --non-interactive --agree-tos \
-    --email "admin@${DOMAIN_VAL}" \
-    --domains "${DOMAIN_VAL}" \
+    --email "admin@${DOMAIN}" \
+    --domains "${DOMAIN}" \
     --redirect
 else
+  echo "=== Renovando certificado existente ==="
   certbot renew --quiet --nginx
 fi
 
+# ── Cron de renovação automática ─────────────────────────────
 ( crontab -l 2>/dev/null | grep -v "certbot renew"; echo "0 3 * * * certbot renew --quiet --nginx" ) | crontab -
 
-echo "=== AfterInstall concluído ==="
+echo "=== AfterInstall concluído com sucesso ==="
