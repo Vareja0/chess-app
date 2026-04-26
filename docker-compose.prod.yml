@@ -1,6 +1,6 @@
 services:
   app:
-    image: varejao/chess-app:latest
+    image: varejao/chess:latest
     container_name: chess-app
     env_file:
       - .env
