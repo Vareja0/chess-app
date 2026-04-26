@@ -27,11 +27,11 @@ get_secret() {
   echo "$SECRET" | jq -r ".[\"$1\"]"
 }
 echo "=== Buscando secrets ==="
-DB_PASSWORD=$(get_secret "db-password")
-REFRESH_SECRET_KEY=$(get_secret "refresh-secret-key")
-SECRET_KEY=$(get_secret "secret-key")
-DOMAIN=$(get_secret "domain")
-DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
+DB_PASSWORD=$(get_secret "chess-app/production/db-password")
+REFRESH_SECRET_KEY=$(get_secret "chess-app/production/refresh-secret-key")
+SECRET_KEY=$(get_secret "chess-app/production/secret-key")
+DOMAIN=$(get_secret "chess-app/production/domain")
+DOCKERHUB_PASSWORD=$(get_secret "chess-app/dockerhub-password")
 
 echo $DB_PASSWORD
 echo $REFRESH_SECRET_KEY
