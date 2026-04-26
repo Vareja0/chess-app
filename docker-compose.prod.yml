@@ -1,4 +1,4 @@
-services:
+ervices:
   app:
     image: varejao/chess-app:latest
     container_name: chess-app
@@ -8,9 +8,9 @@ services:
       GIN_MODE: release
     depends_on:
       db:
-        condition: service_healthy
+	condition: service_healthy
       redis:
-        condition: service_healthy
+	condition: service_healthy
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -40,8 +40,9 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
+	max-size: "10m"
         max-file: "3"
+
 
   redis:
     image: redis:7-alpine
