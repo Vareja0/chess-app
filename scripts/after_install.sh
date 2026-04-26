@@ -28,10 +28,16 @@ get_secret() {
 }
 echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "db-password")
-REFRESH_SECRET_TOKEN=$(get_secret "refresh-secret-token")
-SECRET_TOKEN=$(get_secret "secret-token")
+REFRESH_SECRET_KEY=$(get_secret "refresh-secret-key")
+SECRET_KEY=$(get_secret "secret-key")
 DOMAIN=$(get_secret "domain")
 DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
+
+echo $DB_PASSWORD
+echo $REFRESH_SECRET_KEY
+echo $SECRET_KEY
+echo $DOMAIN
+echo $DOCKERHUB_PASSWORD
 
 # ── .env lido pelo Docker Compose ────────────────────────────
 echo "=== Escrevendo .env ==="
