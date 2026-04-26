@@ -1,4 +1,4 @@
-ervices:
+services:
   app:
     image: varejao/chess-app:latest
     container_name: chess-app
@@ -17,9 +17,8 @@ ervices:
     logging:
       driver: json-file
       options:
-        max-size: "10m"
+	max-size: "10m"
         max-file: "3"
-
   db:
     image: postgres:18-alpine
     container_name: chess-db
@@ -42,7 +41,6 @@ ervices:
       options:
 		max-size: "10m"
         max-file: "3"
-
 
   redis:
     image: redis:7-alpine
