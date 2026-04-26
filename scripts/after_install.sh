@@ -37,6 +37,15 @@ DOCKERHUB_PASSWORD=$(get_secret "dockerhub-password")
 echo "=== Escrevendo .env ==="
 DOCKERHUB_USERNAME=$(get_secret "chess-app/dockerhub-username")
 
+echo "=== Debug DockerHub ==="
+echo "Usuario capturado: '${DOCKERHUB_USERNAME}'"
+# Não imprima a senha, mas verifique se ela está vazia/null
+if [ "$DOCKERHUB_PASSWORD" == "null" ] || [ -z "$DOCKERHUB_PASSWORD" ]; then
+    echo "ALERTA: A senha veio vazia ou nula!"
+else
+    echo "A senha foi capturada e tem tamanho: ${#DOCKERHUB_PASSWORD} caracteres."
+fi
+
 # Login no DockerHub para poder fazer pull de imagens privadas (se necessário)
 echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 
