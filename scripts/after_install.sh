@@ -95,8 +95,8 @@ systemctl enable chess-app
 
 # ── nginx reverse proxy ───────────────────────────────────────
 echo "=== Configurando nginx ==="
-DOMAIN_VAL="$DOMAIN"
-cat > /etc/nginx/conf.d/chess-app.conf <<EOF
+if [ ! -f "/etc/nginx/conf.d/chess-app.conf" ]; then
+  cat > /etc/nginx/conf.d/chess-app.conf <<EOF
 server {
     listen 80;
     server_name ${DOMAIN_VAL};
@@ -118,8 +118,17 @@ server {
     }
 }
 EOF
+  nginx -t && systemctl restart nginx
 
-nginx -t && systemctl restart nginx
+  # Obtém certificado apenas na primeira vez
+  certbot --nginx --non-interactive --agree-tos \
+    --email "admin@${DOMAIN_VAL}" \
+    --domains "${DOMAIN_VAL}" \
+    --redirect
+else
+  # Nos deploys seguintes só recarrega o nginx
+  nginx -t && systemctl reload nginx
+fi
 
 if [ ! -f "/etc/letsencrypt/live/${DOMAIN_VAL}/fullchain.pem" ]; then
   echo "=== Obtendo certificado Let's Encrypt ==="
