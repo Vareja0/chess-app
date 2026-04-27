@@ -30,7 +30,7 @@ echo "=== Buscando secrets ==="
 DB_PASSWORD=$(get_secret "chess-app/production/db-password")
 REFRESH_SECRET_KEY=$(get_secret "chess-app/production/refresh-secret-key")
 SECRET_KEY=$(get_secret "chess-app/production/secret-key")
-DOMAIN=$(get_secret "chess-app/production/domain")
+DOMAIN_VAL=$(get_secret "chess-app/production/domain")
 DOCKERHUB_PASSWORD=$(get_secret "chess-app/dockerhub-password")
 REDIS_PASSWORD="password"
 
