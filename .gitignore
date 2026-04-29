@@ -59,12 +59,9 @@ CLAUDE.md
 REQUIREMENTS.md
 TECH_STACK.md
 
-# Terraform state and local data
-terraform.tfstate
-terraform.tfstate.backup
-terraform.tfstate.d/
-.terraform/
-.terraform.lock.hcl
-*.tfplan
-*.tfvars
-!*.tfvars.example
+# Docker local/dev files
+Dockerfile
+docker-compose.yaml
+
+# Terraform (removed from tracking; full dir contains secrets)
+terraform/

@@ -3,9 +3,7 @@ services:
     image: varejao/chess:latest
     container_name: chess-app
     env_file:
-      - .env
-    volumes:
-      - /opt/chess-app/.env:/app/.env
+      - .env.prod
     environment:
       GIN_MODE: release
     depends_on:
@@ -21,6 +19,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
   db:
     image: postgres:18-alpine
     container_name: chess-db
@@ -30,8 +29,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - pgdata:/var/lib/postgresql
-      - ./database:/docker-entrypoint-initdb.d
+      - pgdata:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -43,6 +42,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
   redis:
     image: redis:7-alpine
     container_name: chess-redis
@@ -67,6 +67,7 @@ services:
       options:
         max-size: "5m"
         max-file: "3"
+
 volumes:
   pgdata:
   redis-data:
