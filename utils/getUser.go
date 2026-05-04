@@ -11,6 +11,7 @@ import (
 	"github.com/vareja0/go-jwt/models"
 )
 
+// GetUserId parses the Authorization JWT cookie and returns the corresponding User from DB; aborts with 401 on any failure.
 func GetUserId(c *gin.Context) models.User {
 	tokenString, err := c.Cookie("Authorization")
 

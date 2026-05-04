@@ -11,6 +11,7 @@ import (
 
 var RDB *redis.Client
 
+// ConnectRedis initialises the global Redis client from env vars and panics if the connection fails.
 func ConnectRedis() {
 	RDB = redis.NewClient(&redis.Options{
 		Addr:     os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),

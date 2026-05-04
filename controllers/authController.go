@@ -13,6 +13,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// issueTokens creates a short-lived access token (15 min) and long-lived refresh token (30 days),
+// invalidates any previous session for the user, saves the new session, and sets both as HttpOnly cookies.
 func issueTokens(c *gin.Context, user models.User) error {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": user.ID,
@@ -41,6 +43,7 @@ func issueTokens(c *gin.Context, user models.User) error {
 	return nil
 }
 
+// Signup validates input, hashes the password, creates the user, initialises their Redis state as "idle", and issues JWT cookies.
 func Signup(c *gin.Context) {
 	ctx := context.Background()
 	var body struct {
@@ -84,6 +87,7 @@ func Signup(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": "User created"})
 }
 
+// Logout revokes the session from DB and clears both JWT cookies.
 func Logout(c *gin.Context) {
 	refreshToken, err := c.Cookie("RefreshToken")
 	if err == nil && refreshToken != "" {
@@ -97,6 +101,7 @@ func Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": "logged out"})
 }
 
+// Login verifies email/password against bcrypt hash and issues JWT cookies on success.
 func Login(c *gin.Context) {
 	var body struct {
 		Email    string

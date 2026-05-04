@@ -7,6 +7,7 @@ import (
 	"github.com/vareja0/go-jwt/middleware"
 )
 
+// init runs before main, bootstrapping env vars, DB, schema migrations, and Redis.
 func init() {
 	initializers.LoadEnvVariables()
 	initializers.ConnectDb()
@@ -14,6 +15,7 @@ func init() {
 	initializers.ConnectRedis()
 }
 
+// main registers all HTTP routes and starts the server on port 3000.
 func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)

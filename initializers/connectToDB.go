@@ -10,6 +10,7 @@ import (
 
 var DB *gorm.DB
 
+// ConnectDb opens the global PostgreSQL connection via GORM using env-var credentials; panics on failure.
 func ConnectDb() {
 	var err error
 	dsn := "host=" + os.Getenv("DB_HOST") + " user=" + os.Getenv("DB_USER") + " password=" + os.Getenv("DB_PASSWORD") +

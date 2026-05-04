@@ -20,6 +20,7 @@ import (
 	"github.com/vareja0/go-jwt/utils"
 )
 
+// wsBaseURL derives the WebSocket base URL from APP_BASE_URL, swapping http(s) scheme for ws(s).
 func wsBaseURL() string {
 	base := strings.TrimRight(os.Getenv("APP_BASE_URL"), "/")
 	base = strings.Replace(base, "https://", "wss://", 1)
@@ -86,6 +87,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
+// runTimer ticks every second, decrements the active player's clock, broadcasts time to both clients,
+// and ends the game with a timeout outcome when a player's time reaches zero.
 func (g *Game) runTimer() {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -131,6 +134,7 @@ func (g *Game) runTimer() {
 	}
 }
 
+// HandleCancelMatchmaking removes the authenticated player from the matchmaking queue and sets their status back to "idle".
 func HandleCancelMatchmaking(c *gin.Context) {
 	ctx := context.Background()
 	user := utils.GetUserId(c)
@@ -146,6 +150,9 @@ func HandleCancelMatchmaking(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "cancelled"})
 }
 
+// HandleMatchmaking pairs the authenticated player with an opponent.
+// If already in a game, returns the existing room. If the queue is empty, enqueues and long-polls (30 s timeout).
+// If an opponent is available, creates the game, assigns random colors, and notifies both players via Pub/Sub.
 func HandleMatchmaking(c *gin.Context) {
 	ctx := context.Background()
 	user := utils.GetUserId(c)
@@ -239,6 +246,8 @@ func HandleMatchmaking(c *gin.Context) {
 	}
 }
 
+// HandleWebSocket upgrades the connection, authenticates the player against the room, and processes
+// "move", "start", and "resign" messages until the connection closes or the game ends.
 func HandleWebSocket(c *gin.Context) {
 	roomID := c.Param("room")
 	ctx := context.Background()
@@ -396,6 +405,7 @@ func HandleWebSocket(c *gin.Context) {
 
 }
 
+// sendAll broadcasts a JSON message to every connected player in the game; caller must hold g.mutex.
 func (g *Game) sendAll(msg interface{}) {
 	data, _ := json.Marshal(msg)
 	for _, p := range g.Players {
@@ -405,6 +415,7 @@ func (g *Game) sendAll(msg interface{}) {
 	}
 }
 
+// sendExcept sends a JSON message to all players except the specified connection; caller must hold g.mutex.
 func (g *Game) sendExcept(except *websocket.Conn, msg interface{}) {
 	data, _ := json.Marshal(msg)
 	for _, p := range g.Players {
@@ -414,12 +425,14 @@ func (g *Game) sendExcept(except *websocket.Conn, msg interface{}) {
 	}
 }
 
+// broadcastExcept acquires the mutex and sends a message to all players except the given connection.
 func (g *Game) broadcastExcept(except *websocket.Conn, msg interface{}) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
 	g.sendExcept(except, msg)
 }
 
+// removePlayer sets the matching player slot to nil and notifies the remaining player of the disconnection.
 func (g *Game) removePlayer(conn *websocket.Conn) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -432,6 +445,7 @@ func (g *Game) removePlayer(conn *websocket.Conn) {
 	g.sendAll(map[string]string{"type": "opponent_disconnected", "message": "Adversário saiu"})
 }
 
+// CreateGame allocates a new in-memory game with a random 8-char ID and returns the room URL.
 func CreateGame(c *gin.Context) {
 	id := uuid.New().String()[:8]
 	gamesMu.Lock()
@@ -444,6 +458,8 @@ func CreateGame(c *gin.Context) {
 	c.JSON(200, gin.H{"room": id, "url": fmt.Sprintf("http://localhost:3000/?room=%s", id)})
 }
 
+// cleanup stops the timer, persists the game result to Redis, closes both WebSocket connections,
+// removes the game from the in-memory map, and resets both players' Redis state to "idle".
 func cleanup(ctx context.Context, game *Game, outcome string, method string) {
 	close(game.TimerStop)
 
