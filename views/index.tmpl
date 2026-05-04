@@ -192,6 +192,29 @@
         </button>
       </div>
 
+      <!-- Time Control Selector -->
+      <div class="flex flex-col gap-2">
+        <p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold text-center opacity-60">Time Control</p>
+        <div class="grid grid-cols-4 gap-2">
+          <button data-mode="bullet" data-time="01:00" class="time-mode-btn py-3 px-2 rounded-xl border border-white/5 bg-surface-container-high text-center transition-all hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed">
+            <div class="text-xs font-bold text-on-surface">Bullet</div>
+            <div class="text-[10px] text-on-surface-variant">1 min</div>
+          </button>
+          <button data-mode="blitz" data-time="03:00" class="time-mode-btn py-3 px-2 rounded-xl border border-white/5 bg-surface-container-high text-center transition-all hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed">
+            <div class="text-xs font-bold text-on-surface">Blitz</div>
+            <div class="text-[10px] text-on-surface-variant">3 min</div>
+          </button>
+          <button data-mode="rapid" data-time="05:00" class="time-mode-btn py-3 px-2 rounded-xl border border-white/5 bg-surface-container-high text-center transition-all hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed">
+            <div class="text-xs font-bold text-on-surface">Rapid</div>
+            <div class="text-[10px] text-on-surface-variant">5 min</div>
+          </button>
+          <button data-mode="classical" data-time="10:00" class="time-mode-btn py-3 px-2 rounded-xl border border-white/5 bg-surface-container-high text-center transition-all hover:border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed">
+            <div class="text-xs font-bold text-on-surface">Classical</div>
+            <div class="text-[10px] text-on-surface-variant">10 min</div>
+          </button>
+        </div>
+      </div>
+
       <!-- Find New Match -->
       <div class="flex flex-col items-center gap-5 mt-2">
         <button

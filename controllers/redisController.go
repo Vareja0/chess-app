@@ -10,14 +10,17 @@ import (
 	"github.com/vareja0/go-jwt/initializers"
 )
 
-// EnqueuePlayer appends a player to the tail of the matchmaking queue.
-func EnqueuePlayer(ctx context.Context, playerID uint) error {
-	return initializers.RDB.RPush(ctx, "matchmaking:queue", playerID).Err()
+// queueKey returns the Redis key for a time-mode-specific matchmaking queue.
+func queueKey(timeMode string) string { return "matchmaking:queue:" + timeMode }
+
+// EnqueuePlayer appends a player to the tail of the mode-specific matchmaking queue.
+func EnqueuePlayer(ctx context.Context, playerID uint, timeMode string) error {
+	return initializers.RDB.RPush(ctx, queueKey(timeMode), playerID).Err()
 }
 
-// DequeuePlayer pops a player from the head of the matchmaking queue; returns redis.Nil when queue is empty.
-func DequeuePlayer(ctx context.Context) (uint, error) {
-	result, err := initializers.RDB.LPop(ctx, "matchmaking:queue").Result()
+// DequeuePlayer pops a player from the head of the mode-specific matchmaking queue; returns redis.Nil when queue is empty.
+func DequeuePlayer(ctx context.Context, timeMode string) (uint, error) {
+	result, err := initializers.RDB.LPop(ctx, queueKey(timeMode)).Result()
 	if err != nil {
 		return 0, err
 	}
@@ -25,9 +28,9 @@ func DequeuePlayer(ctx context.Context) (uint, error) {
 	return uint(id), err
 }
 
-// RemoveFromQueue removes the first occurrence of a player from the matchmaking queue (used on cancel).
-func RemoveFromQueue(ctx context.Context, playerID uint) error {
-	return initializers.RDB.LRem(ctx, "matchmaking:queue", 1, playerID).Err()
+// RemoveFromQueue removes the first occurrence of a player from the mode-specific matchmaking queue (used on cancel).
+func RemoveFromQueue(ctx context.Context, playerID uint, timeMode string) error {
+	return initializers.RDB.LRem(ctx, queueKey(timeMode), 1, playerID).Err()
 }
 
 // PublishMatch sends the match result to the player's personal Pub/Sub channel so their long-poll returns.

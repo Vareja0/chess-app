@@ -47,19 +47,28 @@ type MatchmakingEntry struct {
 }
 
 type MatchmakingResult struct {
-	Room string `json:"room"`
-	URL  string `json:"url"`
+	Room     string `json:"room"`
+	URL      string `json:"url"`
+	TimeMode string `json:"time_mode"`
+}
+
+var timeControls = map[string]time.Duration{
+	"bullet":    1 * time.Minute,
+	"blitz":     3 * time.Minute,
+	"rapid":     5 * time.Minute,
+	"classical": 10 * time.Minute,
 }
 
 type Game struct {
-	ID        string
-	Players   [2]*Player
-	chess     *chess.Game
-	mutex     sync.Mutex
-	TimeLeft  [2]time.Duration
-	LastTick  time.Time
-	TimerStop chan struct{}
-	FirstMove bool
+	ID          string
+	Players     [2]*Player
+	chess       *chess.Game
+	mutex       sync.Mutex
+	TimeLeft    [2]time.Duration
+	TimeControl time.Duration
+	LastTick    time.Time
+	TimerStop   chan struct{}
+	FirstMove   bool
 }
 
 type GameResult struct {
@@ -139,10 +148,11 @@ func HandleCancelMatchmaking(c *gin.Context) {
 	ctx := context.Background()
 	user := utils.GetUserId(c)
 
-	err := RemoveFromQueue(ctx, user.ID)
-
-	if err != nil {
-		log.Print(err)
+	state, err := GetPlayerState(ctx, user.ID)
+	if err == nil && state.TimeMode != "" {
+		if err := RemoveFromQueue(ctx, user.ID, state.TimeMode); err != nil {
+			log.Print(err)
+		}
 	}
 
 	UpdatePlayerStatus(ctx, user.ID, "idle")
@@ -150,15 +160,28 @@ func HandleCancelMatchmaking(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "cancelled"})
 }
 
-// HandleMatchmaking pairs the authenticated player with an opponent.
+// HandleMatchmaking pairs the authenticated player with an opponent in the same time-control queue.
 // If already in a game, returns the existing room. If the queue is empty, enqueues and long-polls (30 s timeout).
 // If an opponent is available, creates the game, assigns random colors, and notifies both players via Pub/Sub.
 func HandleMatchmaking(c *gin.Context) {
 	ctx := context.Background()
 	user := utils.GetUserId(c)
 
-	playerStatus, err := GetPlayerStatus(ctx, user.ID)
+	var body struct {
+		TimeMode string `json:"time_mode"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.TimeMode == "" {
+		c.JSON(400, gin.H{"error": "time_mode required"})
+		return
+	}
 
+	duration, ok := timeControls[body.TimeMode]
+	if !ok {
+		c.JSON(400, gin.H{"error": "invalid time_mode"})
+		return
+	}
+
+	playerStatus, err := GetPlayerStatus(ctx, user.ID)
 	if err != nil {
 		c.JSON(401, gin.H{"error": "erro pegando player status"})
 		return
@@ -177,16 +200,23 @@ func HandleMatchmaking(c *gin.Context) {
 		return
 	}
 
-	opponentID, err := DequeuePlayer(ctx)
+	opponentID, err := DequeuePlayer(ctx, body.TimeMode)
 
 	if err == redis.Nil || opponentID == 0 {
-		EnqueuePlayer(ctx, user.ID)
-
-		err := UpdatePlayerStatus(ctx, user.ID, "in_queue")
-
-		if err != nil {
-			log.Print("erro ao update player status")
+		currentState, _ := GetPlayerState(ctx, user.ID)
+		roomID := ""
+		if currentState != nil {
+			roomID = currentState.RoomID
 		}
+		if err := SetPlayerState(ctx, user.ID, PlayerState{
+			Status:   "in_queue",
+			RoomID:   roomID,
+			TimeMode: body.TimeMode,
+		}); err != nil {
+			log.Print("erro ao update player state: ", err)
+		}
+
+		EnqueuePlayer(ctx, user.ID, body.TimeMode)
 
 		sub := SubscribeMatch(ctx, user.ID)
 		defer sub.Close()
@@ -203,7 +233,7 @@ func HandleMatchmaking(c *gin.Context) {
 			c.JSON(200, result)
 
 		case <-time.After(30 * time.Second):
-			RemoveFromQueue(ctx, user.ID)
+			RemoveFromQueue(ctx, user.ID, body.TimeMode)
 			UpdatePlayerStatus(ctx, user.ID, "idle")
 			c.JSON(408, gin.H{"error": "timeout"})
 		}
@@ -220,11 +250,12 @@ func HandleMatchmaking(c *gin.Context) {
 		id := uuid.New().String()[:8]
 		gamesMu.Lock()
 		games[id] = &Game{
-			ID:        id,
-			chess:     chess.NewGame(),
-			TimeLeft:  [2]time.Duration{5 * time.Minute, 5 * time.Minute},
-			LastTick:  time.Now(),
-			TimerStop: make(chan struct{}),
+			ID:          id,
+			chess:       chess.NewGame(),
+			TimeLeft:    [2]time.Duration{duration, duration},
+			TimeControl: duration,
+			LastTick:    time.Now(),
+			TimerStop:   make(chan struct{}),
 			Players: [2]*Player{
 				{ID: user.ID, Color: colors[0]},
 				{ID: opponentID, Color: colors[1]},
@@ -234,8 +265,9 @@ func HandleMatchmaking(c *gin.Context) {
 		gamesMu.Unlock()
 
 		result := MatchmakingResult{
-			Room: id,
-			URL:  wsBaseURL() + "/ws/" + id,
+			Room:     id,
+			URL:      wsBaseURL() + "/ws/" + id,
+			TimeMode: body.TimeMode,
 		}
 
 		PublishMatch(ctx, opponentID, result)

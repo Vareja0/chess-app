@@ -10,8 +10,9 @@ import (
 )
 
 type PlayerState struct {
-	Status string `json:"status"`
-	RoomID string `json:"room_id"`
+	Status   string `json:"status"`
+	RoomID   string `json:"room_id"`
+	TimeMode string `json:"time_mode"`
 }
 
 // userKey returns the Redis key used to store a player's state.

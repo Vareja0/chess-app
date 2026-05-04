@@ -351,12 +351,47 @@ document.getElementById('loginBtn').addEventListener('click', () => {
 // =============================================
 const MATCHMAKING_URL = '/matchmaking';
 let isSearching = false;
+let selectedTimeMode = 'rapid';
+
+const timeModeButtons = document.querySelectorAll('.time-mode-btn');
+
+function updateTimeModeUI() {
+  timeModeButtons.forEach(btn => {
+    const isSelected = btn.dataset.mode === selectedTimeMode;
+    const titleEl = btn.querySelector('div:first-child');
+    const subtitleEl = btn.querySelector('div:last-child');
+    if (isSelected) {
+      btn.classList.remove('border-white/5', 'bg-surface-container-high');
+      btn.classList.add('border-primary/50', 'bg-primary-container');
+      titleEl.className = 'text-xs font-bold text-on-primary-container';
+      subtitleEl.className = 'text-[10px] text-primary';
+      document.getElementById('whiteTimer').textContent = btn.dataset.time;
+      document.getElementById('blackTimer').textContent = btn.dataset.time;
+    } else {
+      btn.classList.remove('border-primary/50', 'bg-primary-container');
+      btn.classList.add('border-white/5', 'bg-surface-container-high');
+      titleEl.className = 'text-xs font-bold text-on-surface';
+      subtitleEl.className = 'text-[10px] text-on-surface-variant';
+    }
+  });
+}
+
+timeModeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (isSearching) return;
+    selectedTimeMode = btn.dataset.mode;
+    updateTimeModeUI();
+  });
+});
+
+updateTimeModeUI();
 
 function setMatchmakingSearching(searching) {
   isSearching = searching;
   matchmakingBtn.classList.toggle('searching', searching);
   mmSpinner.style.display = searching ? 'block' : 'none';
   mmBtnText.textContent = searching ? 'Procurando adversário...' : '⚔ Buscar Partida';
+  timeModeButtons.forEach(btn => { btn.disabled = searching; });
 }
 
 matchmakingBtn.addEventListener('click', async () => {
@@ -373,7 +408,11 @@ matchmakingBtn.addEventListener('click', async () => {
   statusEl.textContent = 'Buscando adversário...';
 
   try {
-    const res = await fetchWithRefresh(MATCHMAKING_URL, { method: 'POST' });
+    const res = await fetchWithRefresh(MATCHMAKING_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ time_mode: selectedTimeMode }),
+    });
     if (!res || !res.ok) throw new Error(`HTTP ${res ? res.status : 'null'}`);
 
     const data = await res.json();
