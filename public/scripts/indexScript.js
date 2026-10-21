@@ -13,7 +13,7 @@ const statusDot      = document.getElementById('statusDot');
 const fenEl          = document.getElementById('fen');
 const pgnEl          = document.getElementById('pgn');
 const joinBtn        = document.getElementById('joinBtn');
-const startBtn       = document.getElementById('startBtn');
+const abortBtn       = document.getElementById('abortBtn');
 const resignBtn      = document.getElementById('resignBtn');
 const roomInput      = document.getElementById('roomInput');
 const turnDot        = document.getElementById('turnDot');
@@ -62,6 +62,7 @@ document.querySelectorAll('.promo-btn').forEach(btn => {
       highlightMove(source, target);
 
       if (ws && ws.readyState === WebSocket.OPEN) {
+        pendingMove = true;
         ws.send(JSON.stringify({ type: 'move', from: source, to: target, promotion: promoPiece }));
       }
       updateStatus();
@@ -140,14 +141,73 @@ function setDotState(state) {
 }
 
 // =============================================
-// WebSocket
+// Relógios
 // =============================================
-function formatTime(seconds) {
+// The server sends a Clock snapshot with joined, move and game_over; between snapshots we count down locally.
+let clockSnapshot = null; // { white_ms, black_ms, running, receivedAt }
+let gameOver = false;
+let pendingMove = false;  // our optimistic local move, not yet confirmed by the server
+
+function formatTime(ms) {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
 
+function setClocks(clocks) {
+  clockSnapshot = { ...clocks, receivedAt: performance.now() };
+  renderClocks();
+}
+
+function renderClocks() {
+  if (!clockSnapshot) return;
+  const elapsed = performance.now() - clockSnapshot.receivedAt;
+  const white = clockSnapshot.white_ms - (clockSnapshot.running === 'white' ? elapsed : 0);
+  const black = clockSnapshot.black_ms - (clockSnapshot.running === 'black' ? elapsed : 0);
+  document.getElementById('whiteTimer').textContent = formatTime(white);
+  document.getElementById('blackTimer').textContent = formatTime(black);
+}
+
+setInterval(renderClocks, 200);
+
+// Abort is only possible before both sides have made their first move, i.e. while no Clock is running.
+function updateAbortBtn() {
+  abortBtn.disabled = gameOver || !clockSnapshot || clockSnapshot.running !== null;
+}
+
+// =============================================
+// Resultado
+// =============================================
+const METHOD_TEXT = {
+  checkmate: 'xeque-mate',
+  stalemate: 'afogamento',
+  insufficient_material: 'material insuficiente',
+  threefold_repetition: 'repetição tripla',
+  fifty_moves: 'regra dos 50 lances',
+  resign: 'desistência',
+  timeout: 'tempo',
+  disconnect: 'desconexão',
+};
+
+function resultText(winner, method) {
+  if (method === 'aborted') return 'Partida abortada';
+  const how = METHOD_TEXT[method] || method;
+  if (winner === 'white') return `Brancas venceram por ${how}`;
+  if (winner === 'black') return `Pretas venceram por ${how}`;
+  return `Empate por ${how}`;
+}
+
+const ERROR_TEXT = {
+  not_your_turn: 'Não é sua vez',
+  illegal_move: 'Movimento ilegal',
+  cannot_abort: 'Não é possível abortar após os primeiros lances',
+  bad_message: 'Mensagem inválida',
+};
+
+// =============================================
+// WebSocket
+// =============================================
 function connectWebSocket(roomCode) {
   const url = new URL(window.location.href);
   url.searchParams.set('room', roomCode);
@@ -167,33 +227,29 @@ function connectWebSocket(roomCode) {
       const data = JSON.parse(event.data);
       console.log(data);
 
-      if (data.type === 'timer') {
-        document.getElementById('whiteTimer').textContent = formatTime(data.white_time);
-        document.getElementById('blackTimer').textContent = formatTime(data.black_time);
-      }
-
       if (data.type === 'joined') {
-        game.load(data.fen);
-        board.position(data.fen);
-        myColor = data.color === 'w' ? 'w' : 'b';
+        gameOver = false;
+        pendingMove = false;
+        game.reset();
+        for (const uci of data.moves) {
+          game.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci.slice(4) || undefined });
+        }
+        board.position(game.fen());
+        myColor = data.color === 'white' ? 'w' : 'b';
         playerRole = myColor === 'w' ? 'Brancas' : 'Pretas';
-        setDotState('connected');
-        statusEl.textContent = `Você é ${playerRole} — ${data.message}`;
-        startBtn.disabled = false;
+        setDotState(data.opponent_connected ? 'connected' : 'waiting');
+        setClocks(data.clocks);
+        updateAbortBtn();
         resignBtn.disabled = false;
 
-        // Orientar o tabuleiro
-        if (myColor === 'b') {
-          board.orientation('black');
-        } else {
-          board.orientation('white');
-        }
+        board.orientation(myColor === 'b' ? 'black' : 'white');
 
         playerCard.style.display = 'block';
         pieceIcon.className = 'piece-icon ' + (myColor === 'w' ? 'white' : 'black');
         pieceIcon.textContent = myColor === 'w' ? '♔' : '♚';
         playerName.textContent = playerRole;
-        playerRoleEl.textContent = 'Conectado';
+        playerRoleEl.textContent = data.opponent_connected ? 'Adversário conectado' : 'Aguardando adversário';
+        updateStatus();
       }
 
       if (data.type === 'opponent_joined') {
@@ -202,42 +258,39 @@ function connectWebSocket(roomCode) {
         if (playerRoleEl) playerRoleEl.textContent = 'Adversário conectado';
       }
 
-      if (data.type === 'start') {
-        clearHighlights();
-        game.reset();
-        board.position('start');
+      if (data.type === 'move') {
+        const mine = pendingMove && game.turn() !== myColor;
+        if (mine) {
+          pendingMove = false; // already on our board
+        } else {
+          game.move({ from: data.from, to: data.to, promotion: data.promotion || undefined });
+        }
+        board.position(game.fen());
+        highlightMove(data.from, data.to);
+        setClocks(data.clocks);
+        updateAbortBtn();
         updateStatus();
       }
 
-      if (data.type === 'move') {
-        const move = game.move({
-          from: data.from,
-          to: data.to,
-          promotion: data.promotion || undefined
-        });
-        if (move) {
-          board.position(game.fen());
-          highlightMove(data.from, data.to);
-          updateStatus();
-        }
-      }
-
       if (data.type === 'error') {
-        // Servidor rejeitou o lance — volta o tabuleiro para a posição válida
+        // Server rejected our action: drop the optimistic move and show the real position.
+        if (pendingMove) {
+          game.undo();
+          pendingMove = false;
+        }
         board.position(game.fen());
-        console.warn('Erro do servidor:', data.message);
+        updateStatus();
+        statusEl.textContent = `${playerRole} | ${ERROR_TEXT[data.code] || data.message}`;
+        console.warn('Erro do servidor:', data.code, data.message);
       }
 
       if (data.type === 'game_over') {
+        gameOver = true;
+        setClocks(data.clocks);
         setDotState('');
-        statusEl.textContent = `Fim de jogo: ${data.outcome} ${data.method ? '(' + data.method + ')' : ''}`;
+        statusEl.textContent = `Fim de jogo: ${resultText(data.winner, data.method)}`;
         resignBtn.disabled = true;
-      }
-
-      if (data.type === 'opponent_disconnected') {
-        setDotState('error');
-        statusEl.textContent = 'Adversário desconectou. Jogo pausado.';
-        startBtn.disabled = true;
+        updateAbortBtn();
       }
 
     } catch (e) {
@@ -250,10 +303,12 @@ function connectWebSocket(roomCode) {
     url.searchParams.delete('room');
     window.history.pushState({}, '', url);
 
+    resignBtn.disabled = true;
+    abortBtn.disabled = true;
+    if (gameOver) return; // keep the Result on screen
+
     setDotState('error');
     statusEl.textContent = 'Desconectado. Tente novamente.';
-    startBtn.disabled = true;
-    resignBtn.disabled = true;
   };
 
   ws.onerror = (err) => {
@@ -271,7 +326,7 @@ const config = {
   position: 'start',
 
   onDragStart: (source, piece) => {
-    if (game.game_over() || myColor === null) return false;
+    if (gameOver || game.game_over() || myColor === null) return false;
     if (game.turn() !== myColor) return false;
     if ((myColor === 'w' && piece.search(/^b/) !== -1) ||
         (myColor === 'b' && piece.search(/^w/) !== -1)) return false;
@@ -295,6 +350,7 @@ const config = {
     highlightMove(source, target);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
+      pendingMove = true;
       ws.send(JSON.stringify({ type: 'move', from: source, to: target, promotion: '' }));
     }
     updateStatus();
@@ -444,9 +500,9 @@ joinBtn.addEventListener('click', () => {
   connectWebSocket(room);
 });
 
-startBtn.addEventListener('click', () => {
+abortBtn.addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: 'start' }));
+    ws.send(JSON.stringify({ type: 'abort' }));
   }
 });
 
