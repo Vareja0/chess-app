@@ -7,7 +7,8 @@ A real-time multiplayer chess application with JWT authentication, built with Go
 - User registration and login with JWT tokens
 - Automatic matchmaking queue
 - Real-time chess gameplay over WebSocket
-- 5-minute game timer per player
+- Time controls: bullet (1 min), blitz (3 min), rapid (5 min), classical (10 min)
+- Abort before both sides have moved; automatic draws by threefold repetition and the fifty-move rule
 - Game result persistence
 
 ## Tech Stack
@@ -89,19 +90,24 @@ Copy `chess-app/values.yaml` to `chess-app/values-local.yaml`, fill in the real 
 | POST | `/matchmaking` | ✓ | Join matchmaking queue |
 | POST | `/matchmaking/cancel` | ✓ | Leave queue |
 | GET | `/ws/:room` | ✓ | WebSocket connection for a game |
-| GET | `/create` | ✓ | Create a private game room |
 
 ## WebSocket Message Protocol
 
 ```jsonc
 // Client → Server
-{ "type": "start" }
 { "type": "move", "from": "e2", "to": "e4", "promotion": "" }
 { "type": "resign" }
+{ "type": "abort" }   // only before both sides have made their first move
 
 // Server → Client
-{ "type": "joined", "color": "White", "fen": "..." }
-{ "type": "move", "from": "e2", "to": "e4", "fen": "...", "turn": "Black" }
-{ "type": "timer", "white_time": 300, "black_time": 298 }
-{ "type": "game_over", "outcome": "checkmate", "method": "checkmate" }
+// clocks: { "white_ms": 180000, "black_ms": 180000, "running": "white" | "black" | null }
+// Clocks start after both first moves; the client counts down locally between snapshots.
+{ "type": "joined", "color": "white", "fen": "...", "moves": ["e2e4"], "turn": "black",
+  "clocks": { ... }, "opponent_connected": true }
+{ "type": "opponent_joined", "message": "..." }
+{ "type": "move", "from": "e2", "to": "e4", "promotion": "", "fen": "...", "turn": "black", "clocks": { ... } }
+{ "type": "game_over", "winner": "white" | "black" | null, "method": "checkmate", "clocks": { ... } }
+{ "type": "error", "code": "not_your_turn" | "illegal_move" | "cannot_abort" | "bad_message", "message": "..." }
 ```
+
+`method` is one of `checkmate`, `stalemate`, `insufficient_material`, `threefold_repetition`, `fifty_moves`, `resign`, `timeout`, `disconnect`, `aborted`.

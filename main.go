@@ -40,8 +40,7 @@ func main() {
 	// Protected API/game routes (return 401 on failure)
 	protected := r.Group("/", middleware.RequireAuth)
 	{
-		protected.GET("/create", controllers.CreateGame)
-		protected.GET("/ws/:room", controllers.HandleWebSocket)
+		protected.GET("/ws/:room", controllers.GameRooms.HandleWebSocket)
 		protected.POST("/matchmaking", controllers.HandleMatchmaking)
 		protected.POST("/matchmaking/cancel", controllers.HandleCancelMatchmaking)
 	}
