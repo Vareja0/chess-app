@@ -154,7 +154,7 @@ Accepting needs no explicit broadcast: the Room's loop sees a non-nil `Result` a
   (decision 14).
 - Client keeps two pieces of state, `let canOffer = false; let offerAgainstMe = false;`, seeded from
   `joined.can_offer` and `joined.draw_offer`. `drawBtn` carries the hardcoded `disabled` attribute
-  in the template, like `abortBtn` and `resignBtn` (`views/index.tmpl:179,187`), so the pre-join
+  in the template, like `abortBtn` and `resignBtn` (`views/index.tmpl:190,198,206`), so the pre-join
   state matches. A single `updateDrawBtn()` helper, mirroring the existing `updateAbortBtn()`,
   applies:
 
@@ -185,28 +185,36 @@ Accepting needs no explicit broadcast: the Room's loop sees a non-nil `Result` a
     That card *is* the offerer's feedback: `statusEl` (`#status`) lives inside a
     `class="hidden" aria-hidden="true"` wrapper (`views/index.tmpl:148-160`), so every write to it
     is invisible and cannot serve as confirmation.
-  - `draw_declined` reports "Adversário recusou o empate" only to the offerer, not to the decliner.
+  - `draw_declined` and `draw_withdrawn` go to the player who did **not** cause them, as a card
+    with no buttons ("Adversário recusou o empate" / "Oferta de empate retirada"); the player who
+    caused the event already knows, and simply has the card cleared. These notes use the card for
+    the same reason the offerer's confirmation does: a `statusEl` write would be invisible.
+    A note is cleared by the reader's own next move — which is also what they must do to offer
+    again — or by the Game ending, a reconnect, or a fresh offer.
   - A promotion in progress is left alone. The offer card sits in the column, not over the board,
     so an offer arriving mid-promotion simply waits behind the promotion overlay and is visible
     again once that resolves. (Decision 16 — an earlier draft called `hidePromoModal()` here, which
     cleared `pendingPromotion` without repainting the board and stranded a phantom pawn.)
-- The prompt — `#drawModal`, "Adversário propõe empate", **Aceitar** / **Recusar** sending
+- The prompt — `#drawOffer`, "Adversário propõe empate", **Aceitar** / **Recusar** sending
   `draw_response` with `accept` true/false — is the `#drawOffer` card in the column flow, directly
   above the match-actions grid (decision 16), reusing only `.promo-box` for its surface. It must
   **not** reuse `.promo-overlay` (full-screen, blurred) nor `.promo-btn` for its buttons: that
   selector is a global listener wired to the promotion flow (`indexScript.js:52`) and carries a
-  2.5rem glyph size (`indexStyle.css:117-127`). Use a new `.draw-btn` class with its own rule in
+  2.5rem glyph size (`indexStyle.css:118-128`). Use a new `.draw-btn` class with its own rule in
   `indexStyle.css`. Being in the flow, it needs no interaction with `hidePromoModal`.
 - The prompt is **opened** by a `draw_offered` from the opponent, and by a `joined` whose
   `draw_offer` is the opponent's color — the reconnect case decision 6 exists for. This is not
   theoretical: an offer made before the opponent has connected reaches nobody, because `broadcast`
   iterates `r.conns` (`controllers/gameController.go:307-311`), so the `joined` replay is the only
   way that player ever learns of it.
-- The card is **closed** by Aceitar, Recusar, `draw_declined`, `draw_withdrawn`, `game_over`, and a
-  `joined` whose `draw_offer` is null — so no ending or reconnect can leave a live Accept/Decline
-  overlay over a dead socket.
+- The card is **closed** by Aceitar, Recusar, `game_over`, `ws.onclose`, a `joined` whose
+  `draw_offer` is null, the reader's own next `move`, and a `draw_declined`/`draw_withdrawn` the
+  reader caused — so no ending, disconnect or reconnect leaves live Aceitar/Recusar buttons over a
+  socket that cannot carry the answer.
 - `METHOD_TEXT.agreement = 'acordo'` so the end screen reads "Empate por acordo".
-- `ERROR_TEXT` gains `draw_already_offered` and `no_draw_offer`.
+- `ERROR_TEXT` gains `draw_already_offered` and `no_draw_offer`. Both only reach `statusEl` and the
+  console, so neither is visible today; the client avoids provoking them (the Draw button is
+  disabled in exactly the states that would), which is what makes them unreachable in practice.
 
 ### Pre-existing bug fixed first (slice 0)
 
@@ -258,14 +266,14 @@ window run out, so the assertion cannot be confused with decision 10's `settle` 
 | R4 | White has offered | White moves | both receive `move`, then `draw_withdrawn` with `from == "white"` |
 | R5 | White has offered | White sends `draw_offer` again | only White receives `error` with code `draw_already_offered` |
 | R6 | no offer open | Black sends `draw_response` | only Black receives `error` with code `no_draw_offer` |
-
-R5 and R6 prove the "only" half the way `TestRoom_RejectionsGoOnlyToTheSender` does
-(`tests/room_test.go:254-256`): there is no "assert nothing arrived" primitive, so the opponent's
-*next* received message is made a real `move`, which fails if an error reached them first.
 | R7 | White has offered | Black sends `draw_offer` | both receive `game_over` with `winner: null`, `method: "agreement"` |
 | R8 | White has offered, then White dials a second socket for the same player | the new socket joins | its `joined` carries `draw_offer: "white"` and `can_offer: false`; Black's own `joined` at the start of the test carried `draw_offer: null` and `can_offer: true` |
 | R9 | White has offered, then **Black** dials a second socket | the new socket joins | its `joined` carries `draw_offer: "white"` and `can_offer: true` — the recipient's replay, which is what lets a reconnecting opponent ever see the offer |
 | R10 | Black has an offer open and a mate available | Black plays the mating move | both sockets receive `move`, then `draw_withdrawn` with `from == "black"`, then `game_over` with `winner: "black"`, `method: "checkmate"` — the withdrawal is not suppressed by the move also ending the Game |
+
+R5 and R6 prove the "only" half the way `TestRoom_RejectionsGoOnlyToTheSender` does
+(`tests/room_test.go:254-256`): there is no "assert nothing arrived" primitive, so the opponent's
+*next* received message is made a real `move`, which fails if an error reached them first.
 
 R8 and R9 cannot use the `joinBoth` helper (`tests/room_test.go:102-110`): it drains the `joined`
 payloads and returns only the sockets. They dial with `e.dial` and read `joined` themselves.

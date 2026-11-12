@@ -214,9 +214,17 @@ function showDrawPrompt() {
 // The offerer sees the same card without the buttons: the status line lives in a hidden container,
 // so this is their only confirmation that the offer went out.
 function showOfferSent() {
-  drawOfferTitle.textContent = 'Empate oferecido — aguardando resposta';
+  showOfferNote('Empate oferecido — aguardando resposta');
+}
+
+// A card with no buttons, reporting what just happened to an offer. It stays until the player
+// moves — which is also what they must do to offer again — or the Game ends.
+function showOfferNote(text) {
+  offerAgainstMe = false;
+  drawOfferTitle.textContent = text;
   drawOfferActions.classList.add('hidden');
   drawOffer.classList.add('active');
+  updateDrawBtn();
 }
 
 function hideDrawOffer() {
@@ -310,7 +318,6 @@ function connectWebSocket(roomCode) {
         if (!data.draw_offer) {
           hideDrawOffer();
         } else if (isMine(data.draw_offer)) {
-          hideDrawOffer(); // clears offerAgainstMe before the card is reused
           showOfferSent();
         } else {
           showDrawPrompt();
@@ -343,9 +350,14 @@ function connectWebSocket(roomCode) {
         highlightMove(data.from, data.to);
         setClocks(data.clocks);
         updateAbortBtn();
-        // The mover is the side that is now NOT to move; moving earns back the right to offer.
+        // The mover is the side that is now NOT to move; moving earns back the right to offer,
+        // and clears any note left over from the last offer. A prompt still awaiting an answer
+        // survives: the offer itself survives the recipient's move.
         if (!isMine(data.turn)) {
           canOffer = true;
+          if (!offerAgainstMe) {
+            hideDrawOffer();
+          }
         }
         updateDrawBtn();
         updateStatus();
@@ -361,17 +373,20 @@ function connectWebSocket(roomCode) {
         }
       }
 
+      // The player who caused the event already knows; the other one is the one to tell.
       if (data.type === 'draw_declined') {
-        hideDrawOffer();
-        if (!isMine(data.from)) {
-          statusEl.textContent = `${playerRole} | Adversário recusou o empate`;
+        if (isMine(data.from)) {
+          hideDrawOffer();
+        } else {
+          showOfferNote('Adversário recusou o empate');
         }
       }
 
       if (data.type === 'draw_withdrawn') {
-        hideDrawOffer();
-        if (!isMine(data.from)) {
-          statusEl.textContent = `${playerRole} | Oferta de empate retirada`;
+        if (isMine(data.from)) {
+          hideDrawOffer();
+        } else {
+          showOfferNote('Oferta de empate retirada');
         }
       }
 
@@ -411,6 +426,7 @@ function connectWebSocket(roomCode) {
     resignBtn.disabled = true;
     abortBtn.disabled = true;
     drawBtn.disabled = true;
+    hideDrawOffer(); // a dead socket cannot carry a response, so do not offer the buttons
     if (gameOver) return; // keep the Result on screen
 
     setDotState('error');
