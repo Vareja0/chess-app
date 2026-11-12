@@ -450,6 +450,37 @@ func TestRoom_OfferersMoveAnnouncesTheWithdrawal(t *testing.T) {
 	}
 }
 
+// A reconnecting player is told about an offer that is still standing, in both directions: the
+// offerer so their Draw button stays spent, the recipient so they can still answer it.
+func TestRoom_JoinedReplaysAStandingDrawOffer(t *testing.T) {
+	e := newRoomEnv(t)
+
+	white := e.dial(t, whiteID)
+	if j := expect(t, white, "joined"); j["draw_offer"] != nil || j["can_offer"] != true {
+		t.Errorf("White's joined = %v, want no offer and can_offer true", j)
+	}
+	black := e.dial(t, blackID)
+	expect(t, black, "joined")
+	expect(t, white, "opponent_joined")
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	// The offerer reconnects: the offer is theirs, and their right to offer is spent.
+	white2 := e.dial(t, whiteID)
+	if j := expect(t, white2, "joined"); j["draw_offer"] != "white" || j["can_offer"] != false {
+		t.Errorf("offerer's joined = %v, want draw_offer white and can_offer false", j)
+	}
+	expect(t, black, "opponent_joined")
+
+	// The recipient reconnects: the same offer, and their own right untouched.
+	black2 := e.dial(t, blackID)
+	if j := expect(t, black2, "joined"); j["draw_offer"] != "white" || j["can_offer"] != true {
+		t.Errorf("recipient's joined = %v, want draw_offer white and can_offer true", j)
+	}
+}
+
 func TestRoom_CommandArrivingAfterTheAbortWindowStillEndsTheRoom(t *testing.T) {
 	e := newRoomEnv(t)
 	white, black := e.joinBoth(t)

@@ -197,6 +197,8 @@ func (r *room) handle(cmd command, now time.Time) {
 			Turn:              state.Turn.String(),
 			Clocks:            clocksJSON(state.Clocks),
 			OpponentConnected: r.conns[cmd.color.Opponent()] != nil,
+			DrawOffer:         colorJSON(state.DrawOffer),
+			CanOffer:          r.game.CanOfferDraw(cmd.color, now),
 		})
 		r.sendTo(cmd.color.Opponent(), gin.H{"type": "opponent_joined", "message": "Adversário conectado!"})
 
@@ -350,6 +352,8 @@ type joinedMessage struct {
 	Turn              string     `json:"turn"`
 	Clocks            clocksWire `json:"clocks"`
 	OpponentConnected bool       `json:"opponent_connected"`
+	DrawOffer         *string    `json:"draw_offer"` // who has an offer open, null for none
+	CanOffer          bool       `json:"can_offer"`  // whether this player may offer a draw now
 }
 
 type clocksWire struct {
