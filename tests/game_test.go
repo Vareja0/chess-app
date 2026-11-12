@@ -418,9 +418,10 @@ func TestGame_OfferersMoveWithdrawsTheirOffer(t *testing.T) {
 	play(t, g, at(0), "e2e4", "e7e5")
 	g.OfferDraw(game.White, at(time.Second))
 
-	// Only a move that is actually played withdraws the offer.
-	g.Move(game.Black, "e7e5", at(2*time.Second)) // out of turn
-	g.Move(game.White, "e2e5", at(2*time.Second)) // illegal
+	// Only a move that is actually played withdraws the offer: the offerer's illegal move does not.
+	if _, err := g.Move(game.White, "e2e5", at(2*time.Second)); err != game.ErrIllegalMove {
+		t.Fatalf("illegal move err = %v, want ErrIllegalMove", err)
+	}
 	if o := g.State(at(2 * time.Second)).DrawOffer; o != game.White {
 		t.Fatalf("DrawOffer = %v, want White's offer to survive rejected moves", o)
 	}
@@ -440,6 +441,24 @@ func TestGame_OfferersMoveWithdrawsTheirOffer(t *testing.T) {
 	}
 	if _, err := g.RespondToDraw(game.Black, true, at(3*time.Second)); err != game.ErrNoDrawOffer {
 		t.Fatalf("accepting a withdrawn offer: err = %v, want ErrNoDrawOffer", err)
+	}
+}
+
+// The offerer trying to move out of turn is the case that would break the one-per-move rule if the
+// draw bookkeeping were ever hoisted above Move's guards: it is the offerer's own move, rejected.
+func TestGame_OfferersOutOfTurnMoveDoesNotWithdrawTheirOffer(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5") // White to move
+	g.OfferDraw(game.Black, at(time.Second))
+
+	if _, err := g.Move(game.Black, "b8c6", at(2*time.Second)); err != game.ErrNotYourTurn {
+		t.Fatalf("err = %v, want ErrNotYourTurn", err)
+	}
+	if o := g.State(at(2 * time.Second)).DrawOffer; o != game.Black {
+		t.Errorf("DrawOffer = %v, want Black's offer still standing", o)
+	}
+	if g.CanOfferDraw(game.Black, at(2*time.Second)) {
+		t.Error("an out-of-turn move handed Black's right to offer back")
 	}
 }
 

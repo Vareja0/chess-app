@@ -172,6 +172,17 @@
         </button>
       </div>
 
+      <!-- Oferta de empate: fica no fluxo da coluna, nunca sobre o tabuleiro -->
+      <div class="draw-offer" id="drawOffer">
+        <div class="promo-box">
+          <div class="promo-title" id="drawOfferTitle">Adversário propõe empate</div>
+          <div class="promo-options" id="drawOfferActions">
+            <button class="draw-btn accept" id="drawAcceptBtn">Aceitar</button>
+            <button class="draw-btn" id="drawDeclineBtn">Recusar</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Match Actions -->
       <div class="grid grid-cols-3 gap-4">
         <button
@@ -259,17 +270,6 @@
         <button class="promo-btn" data-piece="r">♜</button>
         <button class="promo-btn" data-piece="b">♝</button>
         <button class="promo-btn" data-piece="n">♞</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Oferta de Empate -->
-  <div class="draw-offer" id="drawModal">
-    <div class="promo-box">
-      <div class="promo-title">Adversário propõe empate</div>
-      <div class="promo-options">
-        <button class="draw-btn accept" id="drawAcceptBtn">Aceitar</button>
-        <button class="draw-btn" id="drawDeclineBtn">Recusar</button>
       </div>
     </div>
   </div>

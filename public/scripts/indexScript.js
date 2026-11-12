@@ -27,9 +27,11 @@ const matchmakingBtn = document.getElementById('matchmakingBtn');
 const mmSpinner      = document.getElementById('mmSpinner');
 const mmBtnText      = document.getElementById('mmBtnText');
 const promoModal     = document.getElementById('promoModal');
-const drawModal      = document.getElementById('drawModal');
-const drawAcceptBtn  = document.getElementById('drawAcceptBtn');
-const drawDeclineBtn = document.getElementById('drawDeclineBtn');
+const drawOffer        = document.getElementById('drawOffer');
+const drawOfferTitle   = document.getElementById('drawOfferTitle');
+const drawOfferActions = document.getElementById('drawOfferActions');
+const drawAcceptBtn    = document.getElementById('drawAcceptBtn');
+const drawDeclineBtn   = document.getElementById('drawDeclineBtn');
 
 // =============================================
 // Promoção
@@ -199,17 +201,27 @@ function isMine(color) {
   return !!color && !!myColor && color[0] === myColor;
 }
 
-// The prompt sits beside the board rather than over it: the offer stands until the offerer moves,
-// so the recipient is free to look at the position, or play on, before answering.
-function showDrawModal() {
+// The offer sits in the column above the match actions, never over the board: it stands until the
+// offerer moves, so the recipient is free to study the position, or play on, before answering.
+function showDrawPrompt() {
   offerAgainstMe = true;
-  drawModal.classList.add('active');
+  drawOfferTitle.textContent = 'Adversário propõe empate';
+  drawOfferActions.classList.remove('hidden');
+  drawOffer.classList.add('active');
   updateDrawBtn();
 }
 
-function hideDrawModal() {
+// The offerer sees the same card without the buttons: the status line lives in a hidden container,
+// so this is their only confirmation that the offer went out.
+function showOfferSent() {
+  drawOfferTitle.textContent = 'Empate oferecido — aguardando resposta';
+  drawOfferActions.classList.add('hidden');
+  drawOffer.classList.add('active');
+}
+
+function hideDrawOffer() {
   offerAgainstMe = false;
-  drawModal.classList.remove('active');
+  drawOffer.classList.remove('active');
   updateDrawBtn();
 }
 
@@ -217,7 +229,7 @@ function respondToDraw(accept) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'draw_response', accept }));
   }
-  hideDrawModal();
+  hideDrawOffer();
 }
 
 // =============================================
@@ -295,10 +307,13 @@ function connectWebSocket(roomCode) {
         // Replay any offer that is still standing: ours keeps the button spent, the opponent's
         // reopens the prompt. An offer made before we connected arrives no other way.
         canOffer = data.can_offer;
-        if (data.draw_offer && !isMine(data.draw_offer)) {
-          showDrawModal();
+        if (!data.draw_offer) {
+          hideDrawOffer();
+        } else if (isMine(data.draw_offer)) {
+          hideDrawOffer(); // clears offerAgainstMe before the card is reused
+          showOfferSent();
         } else {
-          hideDrawModal();
+          showDrawPrompt();
         }
 
         board.orientation(myColor === 'b' ? 'black' : 'white');
@@ -340,22 +355,21 @@ function connectWebSocket(roomCode) {
         if (isMine(data.from)) {
           canOffer = false;
           updateDrawBtn();
-          statusEl.textContent = `${playerRole} | Empate oferecido`;
+          showOfferSent();
         } else {
-          showDrawModal();
-          statusEl.textContent = `${playerRole} | Adversário propõe empate`;
+          showDrawPrompt();
         }
       }
 
       if (data.type === 'draw_declined') {
-        hideDrawModal();
+        hideDrawOffer();
         if (!isMine(data.from)) {
           statusEl.textContent = `${playerRole} | Adversário recusou o empate`;
         }
       }
 
       if (data.type === 'draw_withdrawn') {
-        hideDrawModal();
+        hideDrawOffer();
         if (!isMine(data.from)) {
           statusEl.textContent = `${playerRole} | Oferta de empate retirada`;
         }
@@ -381,7 +395,7 @@ function connectWebSocket(roomCode) {
         statusEl.textContent = `Fim de jogo: ${resultText(data.winner, data.method)}`;
         resignBtn.disabled = true;
         updateAbortBtn();
-        hideDrawModal();
+        hideDrawOffer();
       }
 
     } catch (e) {
