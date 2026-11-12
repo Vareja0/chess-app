@@ -86,11 +86,12 @@ type Result struct {
 
 // State is a full snapshot of the Game, as shown to a joining player.
 type State struct {
-	FEN    string
-	Moves  []string // UCI, in order
-	Turn   Color
-	Clocks Clocks
-	Result *Result
+	FEN       string
+	Moves     []string // UCI, in order
+	Turn      Color
+	Clocks    Clocks
+	Result    *Result
+	DrawOffer Color // who has a draw offer open; NoColor for none, and for a finished Game
 }
 
 // Game is one chess Game. It is not safe for concurrent use; one owner drives it.
@@ -203,6 +204,14 @@ func (g *Game) RespondToDraw(color Color, accept bool, now time.Time) (*Result, 
 	return g.result, nil
 }
 
+// openDrawOffer returns who has an offer open. A finished Game has none, whatever ended it.
+func (g *Game) openDrawOffer() Color {
+	if g.result != nil {
+		return NoColor
+	}
+	return g.drawOffer
+}
+
 // acceptDraw ends the Game in a draw by agreement, charging the side to move for their thinking
 // time first. Both accept paths go through it so they cannot drift apart.
 func (g *Game) acceptDraw(now time.Time) {
@@ -230,7 +239,14 @@ func (g *Game) Result(now time.Time) *Result {
 // State returns the current snapshot of the Game.
 func (g *Game) State(now time.Time) State {
 	g.settle(now)
-	return State{FEN: g.chess.FEN(), Moves: append([]string{}, g.moves...), Turn: g.turn(), Clocks: g.clocks(now), Result: g.result}
+	return State{
+		FEN:       g.chess.FEN(),
+		Moves:     append([]string{}, g.moves...),
+		Turn:      g.turn(),
+		Clocks:    g.clocks(now),
+		Result:    g.result,
+		DrawOffer: g.openDrawOffer(),
+	}
 }
 
 // settle ends the Game if time has run out by now, or Aborts it if a first move is overdue.

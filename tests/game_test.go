@@ -252,6 +252,30 @@ func TestGame_AcceptedDrawOfferEndsTheGameByAgreement(t *testing.T) {
 	}
 }
 
+func TestGame_DeclinedDrawOfferLeavesTheGameInProgress(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+	g.OfferDraw(game.White, at(time.Second))
+
+	r, err := g.RespondToDraw(game.Black, false, at(2*time.Second))
+	if err != nil {
+		t.Fatalf("RespondToDraw: %v", err)
+	}
+	if r != nil {
+		t.Fatalf("Result = %+v, want the Game still in progress", r)
+	}
+	state := g.State(at(2 * time.Second))
+	if state.Result != nil {
+		t.Fatalf("State Result = %+v, want nil", state.Result)
+	}
+	if state.DrawOffer != game.NoColor {
+		t.Errorf("DrawOffer = %v, want none after a decline", state.DrawOffer)
+	}
+	if _, err := g.Move(game.White, "g1f3", at(3*time.Second)); err != nil {
+		t.Fatalf("Move after a declined offer: %v", err)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
