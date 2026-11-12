@@ -163,3 +163,26 @@ body {
     border-radius: 0.25rem;
   }
 }
+
+/* Botões da oferta de empate. Classe própria: .promo-btn é um listener global da promoção. */
+.draw-btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: #2a363d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  padding: 12px 24px;
+  cursor: pointer;
+  color: #d7e4ec;
+  transition: all 0.15s;
+}
+.draw-btn:hover {
+  background: #2f3b41;
+  transform: scale(1.04);
+}
+.draw-btn.accept {
+  border-color: rgba(145, 200, 228, 0.4);
+  color: #91c8e4;
+}

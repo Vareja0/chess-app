@@ -173,7 +173,7 @@
       </div>
 
       <!-- Match Actions -->
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <button
           id="abortBtn"
           disabled
@@ -181,6 +181,14 @@
         >
           <span class="font-bold tracking-wide uppercase text-xs">Abort</span>
           <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors text-sm">close</span>
+        </button>
+        <button
+          id="drawBtn"
+          disabled
+          class="py-4 px-6 bg-surface-container-high hover:bg-surface-bright text-on-surface rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 border border-white/5 group disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <span class="font-bold tracking-wide uppercase text-xs">Draw</span>
+          <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors text-sm">handshake</span>
         </button>
         <button
           id="resignBtn"
@@ -251,6 +259,17 @@
         <button class="promo-btn" data-piece="r">♜</button>
         <button class="promo-btn" data-piece="b">♝</button>
         <button class="promo-btn" data-piece="n">♞</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Oferta de Empate -->
+  <div class="promo-overlay" id="drawModal">
+    <div class="promo-box">
+      <div class="promo-title">Adversário propõe empate</div>
+      <div class="promo-options">
+        <button class="draw-btn accept" id="drawAcceptBtn">Aceitar</button>
+        <button class="draw-btn" id="drawDeclineBtn">Recusar</button>
       </div>
     </div>
   </div>

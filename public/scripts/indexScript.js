@@ -14,6 +14,7 @@ const fenEl          = document.getElementById('fen');
 const pgnEl          = document.getElementById('pgn');
 const joinBtn        = document.getElementById('joinBtn');
 const abortBtn       = document.getElementById('abortBtn');
+const drawBtn        = document.getElementById('drawBtn');
 const resignBtn      = document.getElementById('resignBtn');
 const roomInput      = document.getElementById('roomInput');
 const turnDot        = document.getElementById('turnDot');
@@ -26,6 +27,7 @@ const matchmakingBtn = document.getElementById('matchmakingBtn');
 const mmSpinner      = document.getElementById('mmSpinner');
 const mmBtnText      = document.getElementById('mmBtnText');
 const promoModal     = document.getElementById('promoModal');
+const drawModal      = document.getElementById('drawModal');
 
 // =============================================
 // Promoção
@@ -177,6 +179,45 @@ function updateAbortBtn() {
 }
 
 // =============================================
+// Oferta de empate
+// =============================================
+// canOffer mirrors the server's rule: one offer per own move, so it is spent until we move again.
+// While an offer stands against us the modal is the only way to answer it — clicking Draw there
+// would accept the offer outright, which is not what a button labelled "Draw" should do.
+let canOffer = false;
+let offerAgainstMe = false;
+
+function updateDrawBtn() {
+  drawBtn.disabled = gameOver || !canOffer || offerAgainstMe
+    || !ws || ws.readyState !== WebSocket.OPEN;
+}
+
+// The wire says "white"/"black"; myColor is 'w'/'b'.
+function isMine(color) {
+  return !!color && !!myColor && color[0] === myColor;
+}
+
+function showDrawModal() {
+  offerAgainstMe = true;
+  hidePromoModal(); // both overlays share a z-index, and an offer outranks a half-made move
+  drawModal.classList.add('active');
+  updateDrawBtn();
+}
+
+function hideDrawModal() {
+  offerAgainstMe = false;
+  drawModal.classList.remove('active');
+  updateDrawBtn();
+}
+
+function respondToDraw(accept) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'draw_response', accept }));
+  }
+  hideDrawModal();
+}
+
+// =============================================
 // Resultado
 // =============================================
 const METHOD_TEXT = {
@@ -188,6 +229,7 @@ const METHOD_TEXT = {
   resign: 'desistência',
   timeout: 'tempo',
   disconnect: 'desconexão',
+  agreement: 'acordo',
 };
 
 function resultText(winner, method) {
@@ -203,6 +245,8 @@ const ERROR_TEXT = {
   illegal_move: 'Movimento ilegal',
   cannot_abort: 'Não é possível abortar após os primeiros lances',
   bad_message: 'Mensagem inválida',
+  draw_already_offered: 'Você já ofereceu empate neste lance',
+  no_draw_offer: 'Nenhuma oferta de empate pendente',
 };
 
 // Codes that are a verdict on the move we just sent, and so may undo it locally.
@@ -245,6 +289,15 @@ function connectWebSocket(roomCode) {
         updateAbortBtn();
         resignBtn.disabled = false;
 
+        // Replay any offer that is still standing: ours keeps the button spent, the opponent's
+        // reopens the prompt. An offer made before we connected arrives no other way.
+        canOffer = data.can_offer;
+        if (data.draw_offer && !isMine(data.draw_offer)) {
+          showDrawModal();
+        } else {
+          hideDrawModal();
+        }
+
         board.orientation(myColor === 'b' ? 'black' : 'white');
 
         playerCard.style.display = 'block';
@@ -272,7 +325,37 @@ function connectWebSocket(roomCode) {
         highlightMove(data.from, data.to);
         setClocks(data.clocks);
         updateAbortBtn();
+        // The mover is the side that is now NOT to move; moving earns back the right to offer.
+        if (!isMine(data.turn)) {
+          canOffer = true;
+        }
+        updateDrawBtn();
         updateStatus();
+      }
+
+      if (data.type === 'draw_offered') {
+        if (isMine(data.from)) {
+          canOffer = false;
+          updateDrawBtn();
+          statusEl.textContent = `${playerRole} | Empate oferecido`;
+        } else {
+          showDrawModal();
+          statusEl.textContent = `${playerRole} | Adversário propõe empate`;
+        }
+      }
+
+      if (data.type === 'draw_declined') {
+        hideDrawModal();
+        if (!isMine(data.from)) {
+          statusEl.textContent = `${playerRole} | Adversário recusou o empate`;
+        }
+      }
+
+      if (data.type === 'draw_withdrawn') {
+        hideDrawModal();
+        if (!isMine(data.from)) {
+          statusEl.textContent = `${playerRole} | Oferta de empate retirada`;
+        }
       }
 
       if (data.type === 'error') {
@@ -295,6 +378,7 @@ function connectWebSocket(roomCode) {
         statusEl.textContent = `Fim de jogo: ${resultText(data.winner, data.method)}`;
         resignBtn.disabled = true;
         updateAbortBtn();
+        hideDrawModal();
       }
 
     } catch (e) {
@@ -309,6 +393,7 @@ function connectWebSocket(roomCode) {
 
     resignBtn.disabled = true;
     abortBtn.disabled = true;
+    drawBtn.disabled = true;
     if (gameOver) return; // keep the Result on screen
 
     setDotState('error');
@@ -509,6 +594,18 @@ abortBtn.addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'abort' }));
   }
 });
+
+drawBtn.addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'draw_offer' }));
+    // Spend the right here too: a double-click would otherwise earn a rejection from the server.
+    canOffer = false;
+    updateDrawBtn();
+  }
+});
+
+document.getElementById('drawAcceptBtn').addEventListener('click', () => respondToDraw(true));
+document.getElementById('drawDeclineBtn').addEventListener('click', () => respondToDraw(false));
 
 resignBtn.addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
