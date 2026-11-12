@@ -195,14 +195,22 @@ func (g *Game) Disconnect(color Color, now time.Time) (*Result, error) {
 	return g.forfeit(color, Disconnect, now)
 }
 
-// OfferDraw offers a draw to color's opponent. A player may offer only once per move of theirs:
-// offering again before moving returns ErrDrawAlreadyOffered, whether the first offer still stands
-// or was declined.
+// OfferDraw offers a draw to color's opponent. If the opponent already had an offer open, it is
+// accepted and the Game ends in a draw by agreement. A player may otherwise offer only once per
+// move of theirs: offering again before moving returns ErrDrawAlreadyOffered, whether the first
+// offer still stands or was declined.
 // The returned Result is nil unless this call ended the Game.
 func (g *Game) OfferDraw(color Color, now time.Time) (*Result, error) {
 	g.settle(now)
 	if g.result != nil {
 		return nil, ErrGameOver
+	}
+	// Both sides have now said "draw", so this is an acceptance. It is checked before the
+	// once-per-move guard: a spent right must never stand between two players who agree.
+	if g.drawOffer == color.Opponent() {
+		g.drawOffer = NoColor
+		g.acceptDraw(now)
+		return g.result, nil
 	}
 	if !g.canOffer[color] {
 		return nil, ErrDrawAlreadyOffered

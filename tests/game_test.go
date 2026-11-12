@@ -458,6 +458,47 @@ func TestGame_OpponentsMoveLeavesTheOfferStanding(t *testing.T) {
 	}
 }
 
+func TestGame_OfferingIntoAnOpenOfferAcceptsIt(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5", "g1f3") // Black to move, Clocks running
+	g.OfferDraw(game.White, at(time.Second))
+
+	r, err := g.OfferDraw(game.Black, at(10*time.Second))
+	if err != nil {
+		t.Fatalf("OfferDraw: %v", err)
+	}
+	if r == nil || *r != drawn {
+		t.Fatalf("Result = %+v, want a draw by agreement", r)
+	}
+	// Accepting charges the side to move, as Resign does.
+	want := game.Clocks{White: 3 * time.Minute, Black: 3*time.Minute - 10*time.Second, Running: game.NoColor}
+	if c := g.State(at(10 * time.Second)).Clocks; c != want {
+		t.Fatalf("Clocks = %+v, want %+v", c, want)
+	}
+}
+
+func TestGame_MutualOfferBeatsTheOncePerMoveGuard(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+
+	// Black spends their right to offer, and never moves again.
+	g.OfferDraw(game.Black, at(time.Second))
+	g.RespondToDraw(game.White, false, at(2*time.Second))
+	play(t, g, at(3*time.Second), "g1f3")
+	g.OfferDraw(game.White, at(4*time.Second))
+
+	if g.CanOfferDraw(game.Black, at(5*time.Second)) {
+		t.Fatal("Black's right to offer is not spent; the test proves nothing")
+	}
+	r, err := g.OfferDraw(game.Black, at(5*time.Second))
+	if err != nil {
+		t.Fatalf("OfferDraw: %v", err)
+	}
+	if r == nil || *r != drawn {
+		t.Fatalf("Result = %+v, want a draw by agreement", r)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
