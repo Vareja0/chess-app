@@ -71,6 +71,7 @@ const (
 	InsufficientMaterial Method = "insufficient_material"
 	ThreefoldRepetition  Method = "threefold_repetition"
 	FiftyMoves           Method = "fifty_moves"
+	Agreement            Method = "agreement"
 	Resign               Method = "resign"
 	Timeout              Method = "timeout"
 	Disconnect           Method = "disconnect"
@@ -99,6 +100,7 @@ type Game struct {
 	lastMoveAt time.Time
 	moves      []string // UCI, in order
 	result     *Result
+	drawOffer  Color // who has a draw offer open, NoColor for none
 }
 
 // Option configures a new Game.
@@ -172,6 +174,40 @@ func (g *Game) Resign(color Color, now time.Time) (*Result, error) {
 // Disconnect ends the Game as a win for color's opponent, because color left the Room.
 func (g *Game) Disconnect(color Color, now time.Time) (*Result, error) {
 	return g.forfeit(color, Disconnect, now)
+}
+
+// OfferDraw offers a draw to color's opponent.
+// The returned Result is nil unless this call ended the Game.
+func (g *Game) OfferDraw(color Color, now time.Time) (*Result, error) {
+	g.settle(now)
+	if g.result != nil {
+		return nil, ErrGameOver
+	}
+	g.drawOffer = color
+	return nil, nil
+}
+
+// RespondToDraw accepts or declines the offer standing against color. Accepting ends the Game in a
+// draw by agreement; declining leaves it in progress.
+// The returned Result is nil unless this call ended the Game.
+func (g *Game) RespondToDraw(color Color, accept bool, now time.Time) (*Result, error) {
+	g.settle(now)
+	if g.result != nil {
+		return nil, ErrGameOver
+	}
+	g.drawOffer = NoColor
+	if !accept {
+		return nil, nil
+	}
+	g.acceptDraw(now)
+	return g.result, nil
+}
+
+// acceptDraw ends the Game in a draw by agreement, charging the side to move for their thinking
+// time first. Both accept paths go through it so they cannot drift apart.
+func (g *Game) acceptDraw(now time.Time) {
+	g.charge(g.turn(), now)
+	g.end(Result{Method: Agreement})
 }
 
 func (g *Game) forfeit(color Color, method Method, now time.Time) (*Result, error) {

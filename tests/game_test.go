@@ -231,6 +231,27 @@ func TestGame_EndsExactlyOnce(t *testing.T) {
 	}
 }
 
+var drawn = game.Result{Winner: game.NoColor, Method: game.Agreement}
+
+func TestGame_AcceptedDrawOfferEndsTheGameByAgreement(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+
+	if _, err := g.OfferDraw(game.White, at(time.Second)); err != nil {
+		t.Fatalf("OfferDraw: %v", err)
+	}
+	r, err := g.RespondToDraw(game.Black, true, at(2*time.Second))
+	if err != nil {
+		t.Fatalf("RespondToDraw: %v", err)
+	}
+	if r == nil || *r != drawn {
+		t.Fatalf("Result = %+v, want a draw by agreement", r)
+	}
+	if sr := g.State(at(2 * time.Second)).Result; sr == nil || *sr != drawn {
+		t.Fatalf("State Result = %+v, want a draw by agreement", sr)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
