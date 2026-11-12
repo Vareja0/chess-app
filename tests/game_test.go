@@ -388,6 +388,31 @@ func TestGame_OnlyOneDrawOfferPerOwnMove(t *testing.T) {
 	})
 }
 
+func TestGame_CanOfferDrawTracksTheRightToOffer(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+
+	if !g.CanOfferDraw(game.White, at(time.Second)) {
+		t.Error("White cannot offer at the start of the Game")
+	}
+	g.OfferDraw(game.White, at(time.Second))
+	if g.CanOfferDraw(game.White, at(2*time.Second)) {
+		t.Error("White can offer again with their own offer still standing")
+	}
+	g.RespondToDraw(game.Black, false, at(2*time.Second))
+	if g.CanOfferDraw(game.White, at(3*time.Second)) {
+		t.Error("a decline handed White's right back without them moving")
+	}
+	play(t, g, at(3*time.Second), "g1f3")
+	if !g.CanOfferDraw(game.White, at(4*time.Second)) {
+		t.Error("moving did not earn White's right back")
+	}
+	g.Resign(game.Black, at(5*time.Second))
+	if g.CanOfferDraw(game.White, at(5*time.Second)) {
+		t.Error("White can offer a draw in a finished Game")
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
