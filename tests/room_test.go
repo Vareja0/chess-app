@@ -481,6 +481,37 @@ func TestRoom_JoinedReplaysAStandingDrawOffer(t *testing.T) {
 	}
 }
 
+// A move can both withdraw the mover's offer and end the Game. The withdrawal is still announced.
+func TestRoom_MateByTheOffererAnnouncesTheWithdrawalThenTheResult(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	for _, m := range []struct {
+		conn     *websocket.Conn
+		from, to string
+	}{{white, "f2", "f3"}, {black, "e7", "e5"}, {white, "g2", "g4"}} {
+		send(t, m.conn, move(m.from, m.to))
+		expect(t, white, "move")
+		expect(t, black, "move")
+	}
+
+	send(t, black, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, move("d8", "h4")) // mate, by the player whose offer is standing
+	for _, conn := range []*websocket.Conn{white, black} {
+		expect(t, conn, "move")
+		if m := expect(t, conn, "draw_withdrawn"); m["from"] != "black" {
+			t.Errorf("draw_withdrawn = %v, want from black", m)
+		}
+		if m := expect(t, conn, "game_over"); m["winner"] != "black" || m["method"] != "checkmate" {
+			t.Errorf("game_over = %v, want Black by checkmate", m)
+		}
+	}
+	expectEnded(t, e, "black", "checkmate")
+}
+
 func TestRoom_CommandArrivingAfterTheAbortWindowStillEndsTheRoom(t *testing.T) {
 	e := newRoomEnv(t)
 	white, black := e.joinBoth(t)

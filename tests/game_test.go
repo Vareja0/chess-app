@@ -418,6 +418,16 @@ func TestGame_OfferersMoveWithdrawsTheirOffer(t *testing.T) {
 	play(t, g, at(0), "e2e4", "e7e5")
 	g.OfferDraw(game.White, at(time.Second))
 
+	// Only a move that is actually played withdraws the offer.
+	g.Move(game.Black, "e7e5", at(2*time.Second)) // out of turn
+	g.Move(game.White, "e2e5", at(2*time.Second)) // illegal
+	if o := g.State(at(2 * time.Second)).DrawOffer; o != game.White {
+		t.Fatalf("DrawOffer = %v, want White's offer to survive rejected moves", o)
+	}
+	if g.CanOfferDraw(game.White, at(2*time.Second)) {
+		t.Error("a rejected move handed White's right to offer back")
+	}
+
 	moved, err := g.Move(game.White, "g1f3", at(2*time.Second))
 	if err != nil {
 		t.Fatalf("Move: %v", err)

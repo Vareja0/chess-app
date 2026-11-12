@@ -261,6 +261,8 @@ func (r *room) handleMessage(cmd command, now time.Time) {
 			r.broadcast(gin.H{"type": "draw_offered", "from": cmd.color.String()})
 		}
 	case "draw_response":
+		// No Result means the offer was declined; an accepted one ends the Game, which the loop
+		// announces instead.
 		var result *game.Result
 		result, err = r.game.RespondToDraw(cmd.color, msg.Accept, now)
 		if err == nil && result == nil {

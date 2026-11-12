@@ -28,6 +28,8 @@ const mmSpinner      = document.getElementById('mmSpinner');
 const mmBtnText      = document.getElementById('mmBtnText');
 const promoModal     = document.getElementById('promoModal');
 const drawModal      = document.getElementById('drawModal');
+const drawAcceptBtn  = document.getElementById('drawAcceptBtn');
+const drawDeclineBtn = document.getElementById('drawDeclineBtn');
 
 // =============================================
 // Promoção
@@ -199,7 +201,10 @@ function isMine(color) {
 
 function showDrawModal() {
   offerAgainstMe = true;
-  hidePromoModal(); // both overlays share a z-index, and an offer outranks a half-made move
+  // Both overlays share a z-index, and an offer outranks a half-made move. Cancelling the
+  // promotion puts the board back, exactly as dismissing the promo modal by hand does.
+  board.position(game.fen());
+  hidePromoModal();
   drawModal.classList.add('active');
   updateDrawBtn();
 }
@@ -604,8 +609,8 @@ drawBtn.addEventListener('click', () => {
   }
 });
 
-document.getElementById('drawAcceptBtn').addEventListener('click', () => respondToDraw(true));
-document.getElementById('drawDeclineBtn').addEventListener('click', () => respondToDraw(false));
+drawAcceptBtn.addEventListener('click', () => respondToDraw(true));
+drawDeclineBtn.addEventListener('click', () => respondToDraw(false));
 
 resignBtn.addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
