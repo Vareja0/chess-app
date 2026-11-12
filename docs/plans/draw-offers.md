@@ -32,7 +32,8 @@ Full vertical slice: the `game` package, the Room's websocket protocol, and the 
 | 12 | A `draw_response` with no `accept` field **declines** (Go's zero value). | Declining is the safe default: a malformed message must never end a Game. Documented so it is a decision rather than an accident. |
 | 13 | Glossary gains **Draw offer**; the Result entry, the README feature list and the README protocol block gain the new messages, codes and method. | `README.md:94-113` is the canonical protocol reference and would otherwise silently misdocument this change. |
 | 14 | While an offer stands **against** you, `drawBtn` is **disabled** — the modal's Aceitar/Recusar is the only way to respond. Offering a draw never asks for confirmation. | Decision 4 makes a click on "Draw" end the Game instantly in that state, with no confirm, unlike Resign (`indexScript.js:509-515`). Disabling removes the trap without inventing a second label for one button. Decision 4 still holds on the wire for any other client. |
-| 15 | The draw modal has **no outside-click dismiss**. It closes only on Aceitar, Recusar, or a server event. | The `.promo-overlay` pattern dismisses on outside click (`indexScript.js:79-84`). Copying that would hide an offer that is still open server-side, with nothing to re-send it. |
+| 15 | The draw prompt has **no outside-click dismiss**. It closes only on Aceitar, Recusar, or a server event. | The `.promo-overlay` pattern dismisses on outside click (`indexScript.js:79-84`). Copying that would hide an offer that is still open server-side, with nothing to re-send it. |
+| 16 | The prompt is a **non-blocking card** beside the board (`.draw-offer`, no `inset: 0`, no backdrop blur), not a full-screen overlay. *Added after code review.* | A blocking overlay hides the position while the recipient's Clock runs, and makes decision 2's own rationale — "the opponent may think, then accept" — and behavior G7 unreachable from the UI. The server already lets the recipient move with the offer standing; the UI must not take that away. |
 
 ### Derived from the above
 
@@ -185,13 +186,13 @@ Accepting needs no explicit broadcast: the Room's loop sees a non-nil `Result` a
   - `draw_offered` also calls `hidePromoModal()`. Both overlays sit at `z-index: 999`, so an offer
     arriving mid-promotion would otherwise stack on top of it and leave `#promoModal` open with
     `pendingPromotion` set over a Game that may now be finished.
-- The modal — `#drawModal`, "Adversário propõe empate", **Aceitar** / **Recusar** sending
-  `draw_response` with `accept` true/false — reuses the `.promo-overlay` / `.promo-box` layout
-  classes. That is safe because the outside-click dismiss is bound to the `#promoModal` element
-  specifically (`indexScript.js:79-84`), not to the class, and per decision 15 no such handler is
-  added for `#drawModal`. Its buttons must **not** use `.promo-btn`: that selector is a global
-  listener wired to the promotion flow (`indexScript.js:52`) and carries a 2.5rem glyph size
+- The prompt — `#drawModal`, "Adversário propõe empate", **Aceitar** / **Recusar** sending
+  `draw_response` with `accept` true/false — is a `.draw-offer` card pinned beside the board
+  (decision 16), reusing only `.promo-box` for its surface. It must **not** reuse `.promo-overlay`
+  (full-screen, blurred) nor `.promo-btn` for its buttons: that selector is a global listener wired
+  to the promotion flow (`indexScript.js:52`) and carries a 2.5rem glyph size
   (`indexStyle.css:117-127`). Use a new `.draw-btn` class with its own rule in `indexStyle.css`.
+  Sitting below the promotion overlay's `z-index`, it needs no interaction with `hidePromoModal`.
 - The modal is **opened** by a `draw_offered` from the opponent, and by a `joined` whose
   `draw_offer` is the opponent's color — the reconnect case decision 6 exists for. This is not
   theoretical: an offer made before the opponent has connected reaches nobody, because `broadcast`

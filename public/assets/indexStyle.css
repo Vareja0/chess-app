@@ -164,6 +164,26 @@ body {
   }
 }
 
+/* A oferta de empate não bloqueia o tabuleiro: o adversário pode pensar, ou mesmo jogar,
+   antes de responder — a oferta continua de pé até quem ofereceu jogar. */
+.draw-offer {
+  display: none;
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 998;
+}
+.draw-offer.active {
+  display: block;
+}
+@media (max-width: 640px) {
+  .draw-offer {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+  }
+}
+
 /* Botões da oferta de empate. Classe própria: .promo-btn é um listener global da promoção. */
 .draw-btn {
   font-size: 0.75rem;

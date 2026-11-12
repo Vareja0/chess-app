@@ -199,12 +199,10 @@ function isMine(color) {
   return !!color && !!myColor && color[0] === myColor;
 }
 
+// The prompt sits beside the board rather than over it: the offer stands until the offerer moves,
+// so the recipient is free to look at the position, or play on, before answering.
 function showDrawModal() {
   offerAgainstMe = true;
-  // Both overlays share a z-index, and an offer outranks a half-made move. Cancelling the
-  // promotion puts the board back, exactly as dismissing the promo modal by hand does.
-  board.position(game.fen());
-  hidePromoModal();
   drawModal.classList.add('active');
   updateDrawBtn();
 }
