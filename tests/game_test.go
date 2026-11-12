@@ -309,6 +309,44 @@ func TestGame_OnlyTheSideAnOfferStandsAgainstMayRespond(t *testing.T) {
 	})
 }
 
+func TestGame_DrawCommandsAreRejectedOnceTheGameIsOver(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+	g.OfferDraw(game.White, at(time.Second))
+
+	// White's flag falls while the offer is still standing.
+	if _, err := g.OfferDraw(game.Black, at(4*time.Minute)); err != game.ErrGameOver {
+		t.Fatalf("OfferDraw err = %v, want ErrGameOver", err)
+	}
+	if _, err := g.RespondToDraw(game.Black, true, at(4*time.Minute)); err != game.ErrGameOver {
+		t.Fatalf("RespondToDraw err = %v, want ErrGameOver", err)
+	}
+	state := g.State(at(4 * time.Minute))
+	if state.Result == nil || *state.Result != (game.Result{Winner: game.Black, Method: game.Timeout}) {
+		t.Fatalf("Result = %+v, want Black by timeout", state.Result)
+	}
+	if state.DrawOffer != game.NoColor {
+		t.Errorf("DrawOffer = %v, want none once the Game is over", state.DrawOffer)
+	}
+}
+
+func TestGame_StateReportsWhoHasAnOfferOpen(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+
+	if o := g.State(at(time.Second)).DrawOffer; o != game.NoColor {
+		t.Errorf("DrawOffer = %v, want none before any offer", o)
+	}
+	g.OfferDraw(game.White, at(time.Second))
+	if o := g.State(at(2 * time.Second)).DrawOffer; o != game.White {
+		t.Errorf("DrawOffer = %v, want White", o)
+	}
+	g.Resign(game.Black, at(3*time.Second))
+	if o := g.State(at(3 * time.Second)).DrawOffer; o != game.NoColor {
+		t.Errorf("DrawOffer = %v, want none once the Game has ended", o)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
