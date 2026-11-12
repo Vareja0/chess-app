@@ -242,6 +242,9 @@ func (r *room) handleMessage(cmd command, now time.Time) {
 				"turn":      moved.Turn.String(),
 				"clocks":    clocksJSON(moved.Clocks),
 			})
+			if moved.DrawWithdrawn {
+				r.broadcast(gin.H{"type": "draw_withdrawn", "from": cmd.color.String()})
+			}
 		}
 	case "resign":
 		_, err = r.game.Resign(cmd.color, now)

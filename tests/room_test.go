@@ -396,6 +396,60 @@ func TestRoom_DrawRejectionsGoOnlyToTheSender(t *testing.T) {
 	expect(t, black, "move")
 }
 
+func TestRoom_AcceptedDrawEndsTheGameOnce(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_response", "accept": true})
+	for _, conn := range []*websocket.Conn{white, black} {
+		m := expect(t, conn, "game_over")
+		if m["winner"] != nil || m["method"] != "agreement" {
+			t.Errorf("game_over = %v, want a draw by agreement", m)
+		}
+		expectClosed(t, conn)
+	}
+	expectEnded(t, e, nil, "agreement")
+}
+
+func TestRoom_OfferingIntoAnOpenOfferEndsTheGame(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_offer"})
+	for _, conn := range []*websocket.Conn{white, black} {
+		m := expect(t, conn, "game_over")
+		if m["winner"] != nil || m["method"] != "agreement" {
+			t.Errorf("game_over = %v, want a draw by agreement", m)
+		}
+	}
+	expectEnded(t, e, nil, "agreement")
+}
+
+func TestRoom_OfferersMoveAnnouncesTheWithdrawal(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, white, move("e2", "e4"))
+	for _, conn := range []*websocket.Conn{white, black} {
+		expect(t, conn, "move")
+		if m := expect(t, conn, "draw_withdrawn"); m["from"] != "white" {
+			t.Errorf("draw_withdrawn = %v, want from white", m)
+		}
+	}
+}
+
 func TestRoom_CommandArrivingAfterTheAbortWindowStillEndsTheRoom(t *testing.T) {
 	e := newRoomEnv(t)
 	white, black := e.joinBoth(t)
