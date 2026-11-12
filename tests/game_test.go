@@ -499,6 +499,44 @@ func TestGame_MutualOfferBeatsTheOncePerMoveGuard(t *testing.T) {
 	}
 }
 
+func TestGame_DrawCanBeAgreedBeforeEitherSideHasMoved(t *testing.T) {
+	g := newGame(t)
+
+	if _, err := g.OfferDraw(game.White, at(time.Second)); err != nil {
+		t.Fatalf("OfferDraw: %v", err)
+	}
+	r, err := g.RespondToDraw(game.Black, true, at(2*time.Second))
+	if err != nil {
+		t.Fatalf("RespondToDraw: %v", err)
+	}
+	if r == nil || *r != drawn {
+		t.Fatalf("Result = %+v, want a draw by agreement", r)
+	}
+}
+
+func TestGame_AbortWindowBeatsAnOpenDrawOffer(t *testing.T) {
+	g := newGame(t)
+	g.OfferDraw(game.White, at(time.Second))
+
+	if r := g.Result(at(30 * time.Second)); r == nil || *r != aborted {
+		t.Fatalf("Result = %+v, want aborted", r)
+	}
+}
+
+func TestGame_AcceptingADrawChargesTheSideToMove(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5", "g1f3") // Black to move, Clocks running
+	g.OfferDraw(game.White, at(time.Second))
+
+	if _, err := g.RespondToDraw(game.Black, true, at(20*time.Second)); err != nil {
+		t.Fatalf("RespondToDraw: %v", err)
+	}
+	want := game.Clocks{White: 3 * time.Minute, Black: 3*time.Minute - 20*time.Second, Running: game.NoColor}
+	if c := g.State(at(45 * time.Second)).Clocks; c != want {
+		t.Fatalf("Clocks = %+v, want %+v", c, want)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
