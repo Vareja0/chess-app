@@ -276,6 +276,39 @@ func TestGame_DeclinedDrawOfferLeavesTheGameInProgress(t *testing.T) {
 	}
 }
 
+func TestGame_OnlyTheSideAnOfferStandsAgainstMayRespond(t *testing.T) {
+	t.Run("no offer open", func(t *testing.T) {
+		for _, accept := range []bool{true, false} {
+			g := newGame(t)
+			play(t, g, at(0), "e2e4", "e7e5")
+
+			if _, err := g.RespondToDraw(game.Black, accept, at(time.Second)); err != game.ErrNoDrawOffer {
+				t.Fatalf("RespondToDraw(accept=%v) err = %v, want ErrNoDrawOffer", accept, err)
+			}
+			if r := g.State(at(time.Second)).Result; r != nil {
+				t.Fatalf("Result = %+v, want the Game still in progress", r)
+			}
+		}
+	})
+
+	t.Run("responding to your own offer", func(t *testing.T) {
+		g := newGame(t)
+		play(t, g, at(0), "e2e4", "e7e5")
+		g.OfferDraw(game.White, at(time.Second))
+
+		if _, err := g.RespondToDraw(game.White, true, at(2*time.Second)); err != game.ErrNoDrawOffer {
+			t.Fatalf("err = %v, want ErrNoDrawOffer", err)
+		}
+		state := g.State(at(2 * time.Second))
+		if state.Result != nil {
+			t.Fatalf("Result = %+v, want the Game still in progress", state.Result)
+		}
+		if state.DrawOffer != game.White {
+			t.Errorf("DrawOffer = %v, want White's offer still standing", state.DrawOffer)
+		}
+	})
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string

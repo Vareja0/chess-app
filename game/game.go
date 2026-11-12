@@ -42,6 +42,7 @@ var (
 	ErrIllegalMove = errors.New("illegal move")
 	ErrGameOver    = errors.New("game over")
 	ErrCannotAbort = errors.New("cannot abort after both sides have moved")
+	ErrNoDrawOffer = errors.New("no draw offer to respond to")
 )
 
 // firstMoveWindow is how long the side to move has to make their first move before the Game Aborts.
@@ -189,12 +190,16 @@ func (g *Game) OfferDraw(color Color, now time.Time) (*Result, error) {
 }
 
 // RespondToDraw accepts or declines the offer standing against color. Accepting ends the Game in a
-// draw by agreement; declining leaves it in progress.
+// draw by agreement; declining leaves it in progress. With no offer against color — including a
+// response to color's own offer — it returns ErrNoDrawOffer.
 // The returned Result is nil unless this call ended the Game.
 func (g *Game) RespondToDraw(color Color, accept bool, now time.Time) (*Result, error) {
 	g.settle(now)
 	if g.result != nil {
 		return nil, ErrGameOver
+	}
+	if g.drawOffer != color.Opponent() {
+		return nil, ErrNoDrawOffer
 	}
 	g.drawOffer = NoColor
 	if !accept {
