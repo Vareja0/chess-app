@@ -24,6 +24,10 @@ _Avoid_: Time mode, game mode
 Ending a Game before both sides have made their first move; it has no winner and counts for neither player.
 _Avoid_: Cancel (cancel refers to leaving the matchmaking queue)
 
+**Draw offer**:
+One player's standing proposal to end the Game in a draw; the opponent accepts or declines it. A player may make one per move of theirs, and moving withdraws it.
+_Avoid_: Draw request, draw proposal, agreement (agreement is the Result method, not the offer)
+
 **Result**:
-How a finished Game ended: the winner (white, black, or none for a draw) and the method (checkmate, resign, timeout, disconnect, stalemate, and so on).
+How a finished Game ended: the winner (white, black, or none for a draw) and the method (checkmate, resign, timeout, disconnect, stalemate, agreement, and so on).
 _Avoid_: Outcome, score
