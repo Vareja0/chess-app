@@ -205,6 +205,9 @@ const ERROR_TEXT = {
   bad_message: 'Mensagem inválida',
 };
 
+// Codes that are a verdict on the move we just sent, and so may undo it locally.
+const MOVE_ERRORS = new Set(['not_your_turn', 'illegal_move']);
+
 // =============================================
 // WebSocket
 // =============================================
@@ -273,8 +276,9 @@ function connectWebSocket(roomCode) {
       }
 
       if (data.type === 'error') {
-        // Server rejected our action: drop the optimistic move and show the real position.
-        if (pendingMove) {
+        // Only a verdict on the move itself may drop the optimistic move; any other rejection
+        // (a draw command, an unknown message) would roll back a move the server has accepted.
+        if (pendingMove && MOVE_ERRORS.has(data.code)) {
           game.undo();
           pendingMove = false;
         }
