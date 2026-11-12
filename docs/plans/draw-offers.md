@@ -7,6 +7,9 @@ Game with no winner and the method `agreement`.
 
 Full vertical slice: the `game` package, the Room's websocket protocol, and the browser UI.
 
+> Line references are current as of the implementation commits, except those in
+> "Pre-existing bug fixed first (slice 0)", which describe the code as it stood before this work.
+
 ## Out of scope
 
 - A JS test harness. The repo has none; the UI slice is verified by hand.
@@ -26,13 +29,13 @@ Full vertical slice: the `game` package, the Room's websocket protocol, and the 
 | 6 | Both the pending offer **and the asking player's right to offer** are Game state, replayed in the `joined` payload as `draw_offer` and `can_offer`. | A reconnecting client's UI must agree with the server. Replaying only the offer would leave the client rendering an enabled Draw button in exactly the state where decision 3 makes offering illegal. |
 | 7 | Every draw event is **broadcast to both players** with a `from` color. Each client decides from `from` whether the event is about them. | Both clients then hold identical offer state, which is what decision 6's replay has to agree with. |
 | 8 | Withdrawal is announced with its **own `draw_withdrawn` event**, not inferred from the `move` broadcast. | The "whose offer, did they just move" rule stays on the server instead of being reimplemented per client. |
-| 9 | Accepting **charges the side to move** for their thinking time before freezing the Clocks, exactly as `Resign` and `Disconnect` do (`game/game.go:177-185`). | The stored and broadcast Clock snapshot must reflect the time actually spent. |
+| 9 | Accepting **charges the side to move** for their thinking time before freezing the Clocks, exactly as `Resign` and `Disconnect` do (`forfeit`, `game/game.go:265-273`). | The stored and broadcast Clock snapshot must reflect the time actually spent. |
 | 10 | `settle` keeps priority: an open offer neither blocks `Abort` nor stops the 30 s auto-Abort window or a Clock running out. | Consistent with how Resign and Disconnect already lose to a fallen flag (`TestGame_EndsExactlyOnce`). |
 | 11 | `State.DrawOffer` reads `NoColor` once the Game has ended, whatever ended it. | A finished Game has no live offer. Leaving the field set would make callers ask whether the Result or the offer wins. |
 | 12 | A `draw_response` with no `accept` field **declines** (Go's zero value). | Declining is the safe default: a malformed message must never end a Game. Documented so it is a decision rather than an accident. |
 | 13 | Glossary gains **Draw offer**; the Result entry, the README feature list and the README protocol block gain the new messages, codes and method. | `README.md:94-113` is the canonical protocol reference and would otherwise silently misdocument this change. |
-| 14 | While an offer stands **against** you, `drawBtn` is **disabled** — the card's Aceitar/Recusar is the only way to respond. Offering a draw never asks for confirmation. | Decision 4 makes a click on "Draw" end the Game instantly in that state, with no confirm, unlike Resign (`indexScript.js:509-515`). Disabling removes the trap without inventing a second label for one button. Decision 4 still holds on the wire for any other client. |
-| 15 | The draw prompt has **no outside-click dismiss**. It closes only on Aceitar, Recusar, or a server event. | The `.promo-overlay` pattern dismisses on outside click (`indexScript.js:79-84`). Copying that would hide an offer that is still open server-side, with nothing to re-send it. |
+| 14 | While an offer stands **against** you, `drawBtn` is **disabled** — the card's Aceitar/Recusar is the only way to respond. Offering a draw never asks for confirmation. | Decision 4 makes a click on "Draw" end the Game instantly in that state, with no confirm, unlike Resign (`indexScript.js:643-649`). Disabling removes the trap without inventing a second label for one button. Decision 4 still holds on the wire for any other client. |
+| 15 | The draw prompt has **no outside-click dismiss**. It closes only on Aceitar, Recusar, or a server event. | The `.promo-overlay` pattern dismisses on outside click (`indexScript.js:84-90`). Copying that would hide an offer that is still open server-side, with nothing to re-send it. |
 | 16 | The prompt is a **non-blocking card in the column flow**, directly above the match-actions grid (`.draw-offer`, no `position: fixed`, no overlay, no blur). *Added after code review.* | A blocking overlay hides the position while the recipient's Clock runs, and makes decision 2's own rationale — "the opponent may think, then accept" — and behavior G7 unreachable from the UI. A fixed card in the gutter only moves the problem: the column is `max-w-[760px]` centered, so between ~641px and ~1400px the card overlaps the board and swallows `mousedown` on the covered squares. In the flow it cannot overlap at any width. |
 
 ### Derived from the above
@@ -164,11 +167,16 @@ Accepting needs no explicit broadcast: the Room's loop sees a non-nil `Result` a
 
   Call sites: `joined`, `move`, `draw_offered`, `draw_declined`, `draw_withdrawn`, `game_over`,
   the `drawBtn` click handler, and `ws.onclose` (which already disables `resignBtn` and `abortBtn`,
-  `indexScript.js:306-307`).
+  `indexScript.js:426-428`).
+- Socket handlers are bound to **their own socket**, not the module-level `ws`, and return early
+  once replaced. `connectWebSocket` closes the previous socket before opening the next, so its
+  `close` event arrives afterwards; without the guard that stale handler would clear
+  `offerAgainstMe` under a live prompt and re-enable `drawBtn` — and per decision 4 a click there
+  draws the Game instantly, which is the trap decision 14 exists to remove.
 - `canOffer` is cleared **optimistically in the click handler** as well as on the player's own
   `draw_offered`, so a double-click cannot fire two offers and earn a spurious
   "Você já ofereceu empate neste lance". It is restored on the echo of the player's own `move`.
-- **Color encoding**: `myColor` is a single char (`'w'`/`'b'`, `indexScript.js:238`) while `from`
+- **Color encoding**: `myColor` is a single char (`'w'`/`'b'`, `indexScript.js:308`) while `from`
   and `turn` on the wire are `"white"`/`"black"`. A bare `data.from !== myColor` is always true and
   would show the recipient's prompt to the offerer. Compare on the first character:
 
@@ -195,33 +203,38 @@ Accepting needs no explicit broadcast: the Room's loop sees a non-nil `Result` a
     so an offer arriving mid-promotion simply waits behind the promotion overlay and is visible
     again once that resolves. (Decision 16 — an earlier draft called `hidePromoModal()` here, which
     cleared `pendingPromotion` without repainting the board and stranded a phantom pawn.)
-- The prompt — `#drawOffer`, "Adversário propõe empate", **Aceitar** / **Recusar** sending
+- The prompt — "Adversário propõe empate", **Aceitar** / **Recusar** sending
   `draw_response` with `accept` true/false — is the `#drawOffer` card in the column flow, directly
   above the match-actions grid (decision 16), reusing only `.promo-box` for its surface. It must
   **not** reuse `.promo-overlay` (full-screen, blurred) nor `.promo-btn` for its buttons: that
-  selector is a global listener wired to the promotion flow (`indexScript.js:52`) and carries a
+  selector is a global listener wired to the promotion flow (`indexScript.js:58`) and carries a
   2.5rem glyph size (`indexStyle.css:118-128`). Use a new `.draw-btn` class with its own rule in
   `indexStyle.css`. Being in the flow, it needs no interaction with `hidePromoModal`.
 - The prompt is **opened** by a `draw_offered` from the opponent, and by a `joined` whose
   `draw_offer` is the opponent's color — the reconnect case decision 6 exists for. This is not
   theoretical: an offer made before the opponent has connected reaches nobody, because `broadcast`
-  iterates `r.conns` (`controllers/gameController.go:307-311`), so the `joined` replay is the only
+  iterates `r.conns` (`controllers/gameController.go:333-337`), so the `joined` replay is the only
   way that player ever learns of it.
 - The card is **closed** by Aceitar, Recusar, `game_over`, `ws.onclose`, a `joined` whose
-  `draw_offer` is null, the reader's own next `move`, and a `draw_declined`/`draw_withdrawn` the
-  reader caused — so no ending, disconnect or reconnect leaves live Aceitar/Recusar buttons over a
-  socket that cannot carry the answer.
-- `METHOD_TEXT.agreement = 'acordo'` so the end screen reads "Empate por acordo".
+  `draw_offer` is null, the reader's own next `move` (a **note** only — a live prompt survives it,
+  per decision 2 and G7), and a `draw_declined`/`draw_withdrawn` the reader caused — so no ending,
+  disconnect or reconnect leaves live Aceitar/Recusar buttons over a socket that cannot carry the
+  answer.
+- `METHOD_TEXT.agreement = 'acordo'`, so the Result reads "Empate por acordo" wherever it is shown.
+  Today that is nowhere: `resultText` has one consumer, a `statusEl` write, and `statusEl` is
+  invisible. The Game's Result is never displayed to either player — a pre-existing gap, out of
+  scope here, but the string must be right for whenever it is closed.
 - `ERROR_TEXT` gains `draw_already_offered` and `no_draw_offer`. Both only reach `statusEl` and the
-  console, so neither is visible today; the client avoids provoking them (the Draw button is
-  disabled in exactly the states that would), which is what makes them unreachable in practice.
+  console, so neither is visible today. The Draw button is disabled in exactly the states that
+  would provoke `draw_already_offered`; `no_draw_offer` stays reachable by a Recusar click racing
+  the offerer's withdrawing move, where the invisible error is harmless.
 
 ### Pre-existing bug fixed first (slice 0)
 
 The `error` handler undoes the optimistic move for **any** code (`indexScript.js:275-285`). That is
 only sound while every code is a verdict on the client's own move. The undo is gated to
 `not_your_turn` and `illegal_move` — **not** `bad_message`, which is also produced for unparseable
-or unknown-type messages (`gameController.go:225`, `:250`) and so can already roll back a legal,
+or unknown-type messages (`gameController.go:228`, `:272`) and so can already roll back a legal,
 server-accepted move. Without this, clicking Draw between a move and its echo desyncs the board
 permanently. It is a bug the Draw button merely exposes, so it lands as its own commit before the
 feature's UI slice rather than mixed into it.
@@ -279,7 +292,7 @@ R8 and R9 cannot use the `joinBoth` helper (`tests/room_test.go:102-110`): it dr
 payloads and returns only the sockets. They dial with `e.dial` and read `joined` themselves.
 Two consequences of `cmdJoin` replacing a seat's socket (`gameController.go:187-189`): all reads on
 the first socket must finish before the replacement is dialled, since the old conn is closed; and
-the *opponent* receives an extra `opponent_joined` (`:201`) that any later `expect` on that socket
+the *opponent* receives an extra `opponent_joined` (`gameController.go:203`) that any later `expect` on that socket
 must account for.
 
 ## Edge cases and errors

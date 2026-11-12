@@ -285,14 +285,20 @@ function connectWebSocket(roomCode) {
 
   if (ws) ws.close();
 
-  ws = new WebSocket(WS_URL + roomCode);
+  // Handlers close over this socket, not the module-level ws, so a socket replaced by a reconnect
+  // cannot act on its successor's state when its own close event finally arrives.
+  const sock = new WebSocket(WS_URL + roomCode);
+  ws = sock;
+  const isCurrent = () => ws === sock;
 
-  ws.onopen = () => {
+  sock.onopen = () => {
+    if (!isCurrent()) return;
     setDotState('waiting');
     statusEl.textContent = `Sala ${roomCode} — aguardando adversário...`;
   };
 
-  ws.onmessage = (event) => {
+  sock.onmessage = (event) => {
+    if (!isCurrent()) return;
     try {
       const data = JSON.parse(event.data);
       console.log(data);
@@ -418,7 +424,8 @@ function connectWebSocket(roomCode) {
     }
   };
 
-  ws.onclose = () => {
+  sock.onclose = () => {
+    if (!isCurrent()) return; // replaced by a reconnect; its successor owns the UI now
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
     window.history.pushState({}, '', url);
@@ -433,7 +440,8 @@ function connectWebSocket(roomCode) {
     statusEl.textContent = 'Desconectado. Tente novamente.';
   };
 
-  ws.onerror = (err) => {
+  sock.onerror = (err) => {
+    if (!isCurrent()) return;
     console.error('WebSocket error:', err);
     setDotState('error');
     statusEl.textContent = 'Erro na conexão WebSocket';
