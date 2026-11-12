@@ -53,10 +53,11 @@ const firstMoveWindow = 30 * time.Second
 
 // Moved is what a successful move reports.
 type Moved struct {
-	FEN    string
-	Turn   Color
-	Clocks Clocks
-	Result *Result
+	FEN           string
+	Turn          Color
+	Clocks        Clocks
+	Result        *Result
+	DrawWithdrawn bool // the mover had a draw offer open, and this move withdrew it
 }
 
 // Clocks is each side's remaining time and which Clock is running (NoColor before both first moves).
@@ -157,8 +158,18 @@ func (g *Game) Move(color Color, uci string, now time.Time) (Moved, error) {
 	g.moves = append(g.moves, uci)
 	g.lastMoveAt = now
 	g.canOffer[color] = true // moving earns back the right to offer a draw
+	withdrawn := g.drawOffer == color
+	if withdrawn {
+		g.drawOffer = NoColor
+	}
 	g.endOnPosition(color)
-	return Moved{FEN: g.chess.FEN(), Turn: g.turn(), Clocks: g.clocks(now), Result: g.result}, nil
+	return Moved{
+		FEN:           g.chess.FEN(),
+		Turn:          g.turn(),
+		Clocks:        g.clocks(now),
+		Result:        g.result,
+		DrawWithdrawn: withdrawn,
+	}, nil
 }
 
 // Abort ends the Game with no winner. Allowed for either side only before both have made their first move.

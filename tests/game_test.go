@@ -413,6 +413,51 @@ func TestGame_CanOfferDrawTracksTheRightToOffer(t *testing.T) {
 	}
 }
 
+func TestGame_OfferersMoveWithdrawsTheirOffer(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+	g.OfferDraw(game.White, at(time.Second))
+
+	moved, err := g.Move(game.White, "g1f3", at(2*time.Second))
+	if err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+	if !moved.DrawWithdrawn {
+		t.Error("DrawWithdrawn = false, want the offer withdrawn by the offerer's move")
+	}
+	if o := g.State(at(2 * time.Second)).DrawOffer; o != game.NoColor {
+		t.Errorf("DrawOffer = %v, want none", o)
+	}
+	if _, err := g.RespondToDraw(game.Black, true, at(3*time.Second)); err != game.ErrNoDrawOffer {
+		t.Fatalf("accepting a withdrawn offer: err = %v, want ErrNoDrawOffer", err)
+	}
+}
+
+func TestGame_OpponentsMoveLeavesTheOfferStanding(t *testing.T) {
+	g := newGame(t)
+	play(t, g, at(0), "e2e4", "e7e5")
+	play(t, g, at(time.Second), "g1f3")
+	g.OfferDraw(game.White, at(2*time.Second))
+
+	moved, err := g.Move(game.Black, "b8c6", at(3*time.Second))
+	if err != nil {
+		t.Fatalf("Move: %v", err)
+	}
+	if moved.DrawWithdrawn {
+		t.Error("DrawWithdrawn = true, want the opponent's move to leave the offer alone")
+	}
+	if o := g.State(at(3 * time.Second)).DrawOffer; o != game.White {
+		t.Errorf("DrawOffer = %v, want White's offer still standing", o)
+	}
+	r, err := g.RespondToDraw(game.Black, true, at(4*time.Second))
+	if err != nil {
+		t.Fatalf("accepting after moving: %v", err)
+	}
+	if r == nil || *r != drawn {
+		t.Fatalf("Result = %+v, want a draw by agreement", r)
+	}
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string
