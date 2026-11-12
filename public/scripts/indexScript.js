@@ -14,6 +14,7 @@ const fenEl          = document.getElementById('fen');
 const pgnEl          = document.getElementById('pgn');
 const joinBtn        = document.getElementById('joinBtn');
 const abortBtn       = document.getElementById('abortBtn');
+const drawBtn        = document.getElementById('drawBtn');
 const resignBtn      = document.getElementById('resignBtn');
 const roomInput      = document.getElementById('roomInput');
 const turnDot        = document.getElementById('turnDot');
@@ -26,6 +27,11 @@ const matchmakingBtn = document.getElementById('matchmakingBtn');
 const mmSpinner      = document.getElementById('mmSpinner');
 const mmBtnText      = document.getElementById('mmBtnText');
 const promoModal     = document.getElementById('promoModal');
+const drawOffer        = document.getElementById('drawOffer');
+const drawOfferTitle   = document.getElementById('drawOfferTitle');
+const drawOfferActions = document.getElementById('drawOfferActions');
+const drawAcceptBtn    = document.getElementById('drawAcceptBtn');
+const drawDeclineBtn   = document.getElementById('drawDeclineBtn');
 
 // =============================================
 // Promoção
@@ -177,6 +183,64 @@ function updateAbortBtn() {
 }
 
 // =============================================
+// Oferta de empate
+// =============================================
+// canOffer mirrors the server's rule: one offer per own move, so it is spent until we move again.
+// While an offer stands against us the modal is the only way to answer it — clicking Draw there
+// would accept the offer outright, which is not what a button labelled "Draw" should do.
+let canOffer = false;
+let offerAgainstMe = false;
+
+function updateDrawBtn() {
+  drawBtn.disabled = gameOver || !canOffer || offerAgainstMe
+    || !ws || ws.readyState !== WebSocket.OPEN;
+}
+
+// The wire says "white"/"black"; myColor is 'w'/'b'.
+function isMine(color) {
+  return !!color && !!myColor && color[0] === myColor;
+}
+
+// The offer sits in the column above the match actions, never over the board: it stands until the
+// offerer moves, so the recipient is free to study the position, or play on, before answering.
+function showDrawPrompt() {
+  offerAgainstMe = true;
+  drawOfferTitle.textContent = 'Adversário propõe empate';
+  drawOfferActions.classList.remove('hidden');
+  drawOffer.classList.add('active');
+  updateDrawBtn();
+}
+
+// The offerer sees the same card without the buttons: the status line lives in a hidden container,
+// so this is their only confirmation that the offer went out.
+function showOfferSent() {
+  showOfferNote('Empate oferecido — aguardando resposta');
+}
+
+// A card with no buttons, reporting what just happened to an offer. It stays until the player
+// moves — which is also what they must do to offer again — or the Game ends.
+function showOfferNote(text) {
+  offerAgainstMe = false;
+  drawOfferTitle.textContent = text;
+  drawOfferActions.classList.add('hidden');
+  drawOffer.classList.add('active');
+  updateDrawBtn();
+}
+
+function hideDrawOffer() {
+  offerAgainstMe = false;
+  drawOffer.classList.remove('active');
+  updateDrawBtn();
+}
+
+function respondToDraw(accept) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'draw_response', accept }));
+  }
+  hideDrawOffer();
+}
+
+// =============================================
 // Resultado
 // =============================================
 const METHOD_TEXT = {
@@ -188,6 +252,7 @@ const METHOD_TEXT = {
   resign: 'desistência',
   timeout: 'tempo',
   disconnect: 'desconexão',
+  agreement: 'acordo',
 };
 
 function resultText(winner, method) {
@@ -203,7 +268,12 @@ const ERROR_TEXT = {
   illegal_move: 'Movimento ilegal',
   cannot_abort: 'Não é possível abortar após os primeiros lances',
   bad_message: 'Mensagem inválida',
+  draw_already_offered: 'Você já ofereceu empate neste lance',
+  no_draw_offer: 'Nenhuma oferta de empate pendente',
 };
+
+// Codes that are a verdict on the move we just sent, and so may undo it locally.
+const MOVE_ERRORS = new Set(['not_your_turn', 'illegal_move']);
 
 // =============================================
 // WebSocket
@@ -215,14 +285,20 @@ function connectWebSocket(roomCode) {
 
   if (ws) ws.close();
 
-  ws = new WebSocket(WS_URL + roomCode);
+  // Handlers close over this socket, not the module-level ws, so a socket replaced by a reconnect
+  // cannot act on its successor's state when its own close event finally arrives.
+  const sock = new WebSocket(WS_URL + roomCode);
+  ws = sock;
+  const isCurrent = () => ws === sock;
 
-  ws.onopen = () => {
+  sock.onopen = () => {
+    if (!isCurrent()) return;
     setDotState('waiting');
     statusEl.textContent = `Sala ${roomCode} — aguardando adversário...`;
   };
 
-  ws.onmessage = (event) => {
+  sock.onmessage = (event) => {
+    if (!isCurrent()) return;
     try {
       const data = JSON.parse(event.data);
       console.log(data);
@@ -241,6 +317,17 @@ function connectWebSocket(roomCode) {
         setClocks(data.clocks);
         updateAbortBtn();
         resignBtn.disabled = false;
+
+        // Replay any offer that is still standing: ours keeps the button spent, the opponent's
+        // reopens the prompt. An offer made before we connected arrives no other way.
+        canOffer = data.can_offer;
+        if (!data.draw_offer) {
+          hideDrawOffer();
+        } else if (isMine(data.draw_offer)) {
+          showOfferSent();
+        } else {
+          showDrawPrompt();
+        }
 
         board.orientation(myColor === 'b' ? 'black' : 'white');
 
@@ -269,12 +356,50 @@ function connectWebSocket(roomCode) {
         highlightMove(data.from, data.to);
         setClocks(data.clocks);
         updateAbortBtn();
+        // The mover is the side that is now NOT to move; moving earns back the right to offer,
+        // and clears any note left over from the last offer. A prompt still awaiting an answer
+        // survives: the offer itself survives the recipient's move.
+        if (!isMine(data.turn)) {
+          canOffer = true;
+          if (!offerAgainstMe) {
+            hideDrawOffer();
+          }
+        }
+        updateDrawBtn();
         updateStatus();
       }
 
+      if (data.type === 'draw_offered') {
+        if (isMine(data.from)) {
+          canOffer = false;
+          updateDrawBtn();
+          showOfferSent();
+        } else {
+          showDrawPrompt();
+        }
+      }
+
+      // The player who caused the event already knows; the other one is the one to tell.
+      if (data.type === 'draw_declined') {
+        if (isMine(data.from)) {
+          hideDrawOffer();
+        } else {
+          showOfferNote('Adversário recusou o empate');
+        }
+      }
+
+      if (data.type === 'draw_withdrawn') {
+        if (isMine(data.from)) {
+          hideDrawOffer();
+        } else {
+          showOfferNote('Oferta de empate retirada');
+        }
+      }
+
       if (data.type === 'error') {
-        // Server rejected our action: drop the optimistic move and show the real position.
-        if (pendingMove) {
+        // Only a verdict on the move itself may drop the optimistic move; any other rejection
+        // (a draw command, an unknown message) would roll back a move the server has accepted.
+        if (pendingMove && MOVE_ERRORS.has(data.code)) {
           game.undo();
           pendingMove = false;
         }
@@ -291,6 +416,7 @@ function connectWebSocket(roomCode) {
         statusEl.textContent = `Fim de jogo: ${resultText(data.winner, data.method)}`;
         resignBtn.disabled = true;
         updateAbortBtn();
+        hideDrawOffer();
       }
 
     } catch (e) {
@@ -298,20 +424,24 @@ function connectWebSocket(roomCode) {
     }
   };
 
-  ws.onclose = () => {
+  sock.onclose = () => {
+    if (!isCurrent()) return; // replaced by a reconnect; its successor owns the UI now
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
     window.history.pushState({}, '', url);
 
     resignBtn.disabled = true;
     abortBtn.disabled = true;
+    drawBtn.disabled = true;
+    hideDrawOffer(); // a dead socket cannot carry a response, so do not offer the buttons
     if (gameOver) return; // keep the Result on screen
 
     setDotState('error');
     statusEl.textContent = 'Desconectado. Tente novamente.';
   };
 
-  ws.onerror = (err) => {
+  sock.onerror = (err) => {
+    if (!isCurrent()) return;
     console.error('WebSocket error:', err);
     setDotState('error');
     statusEl.textContent = 'Erro na conexão WebSocket';
@@ -505,6 +635,18 @@ abortBtn.addEventListener('click', () => {
     ws.send(JSON.stringify({ type: 'abort' }));
   }
 });
+
+drawBtn.addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'draw_offer' }));
+    // Spend the right here too: a double-click would otherwise earn a rejection from the server.
+    canOffer = false;
+    updateDrawBtn();
+  }
+});
+
+drawAcceptBtn.addEventListener('click', () => respondToDraw(true));
+drawDeclineBtn.addEventListener('click', () => respondToDraw(false));
 
 resignBtn.addEventListener('click', () => {
   if (ws && ws.readyState === WebSocket.OPEN) {

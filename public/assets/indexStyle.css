@@ -111,6 +111,7 @@ body {
 }
 .promo-options {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
 }
@@ -162,4 +163,46 @@ body {
   #board {
     border-radius: 0.25rem;
   }
+}
+
+/* A oferta de empate não bloqueia o tabuleiro: o adversário pode pensar, ou mesmo jogar,
+   antes de responder — a oferta continua de pé até quem ofereceu jogar. Fica no fluxo da
+   coluna, acima dos botões da partida, para não cobrir o tabuleiro em largura nenhuma. */
+.draw-offer {
+  display: none;
+}
+.draw-offer.active {
+  display: block;
+}
+.draw-offer .promo-box {
+  text-align: left;
+}
+.draw-offer .promo-title {
+  margin-bottom: 14px;
+}
+.draw-offer .promo-options {
+  justify-content: flex-start;
+}
+
+/* Botões da oferta de empate. Classe própria: .promo-btn é um listener global da promoção. */
+.draw-btn {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: #2a363d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.5rem;
+  padding: 12px 24px;
+  cursor: pointer;
+  color: #d7e4ec;
+  transition: all 0.15s;
+}
+.draw-btn:hover {
+  background: #2f3b41;
+  transform: scale(1.04);
+}
+.draw-btn.accept {
+  border-color: rgba(145, 200, 228, 0.4);
+  color: #91c8e4;
 }

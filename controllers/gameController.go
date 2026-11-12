@@ -197,6 +197,8 @@ func (r *room) handle(cmd command, now time.Time) {
 			Turn:              state.Turn.String(),
 			Clocks:            clocksJSON(state.Clocks),
 			OpponentConnected: r.conns[cmd.color.Opponent()] != nil,
+			DrawOffer:         colorJSON(state.DrawOffer),
+			CanOffer:          r.game.CanOfferDraw(cmd.color, now),
 		})
 		r.sendTo(cmd.color.Opponent(), gin.H{"type": "opponent_joined", "message": "Adversário conectado!"})
 
@@ -217,6 +219,7 @@ type clientMessage struct {
 	From      string `json:"from"`
 	To        string `json:"to"`
 	Promotion string `json:"promotion"`
+	Accept    bool   `json:"accept"` // draw_response only; an absent field declines
 }
 
 func (r *room) handleMessage(cmd command, now time.Time) {
@@ -241,11 +244,30 @@ func (r *room) handleMessage(cmd command, now time.Time) {
 				"turn":      moved.Turn.String(),
 				"clocks":    clocksJSON(moved.Clocks),
 			})
+			if moved.DrawWithdrawn {
+				r.broadcast(gin.H{"type": "draw_withdrawn", "from": cmd.color.String()})
+			}
 		}
 	case "resign":
 		_, err = r.game.Resign(cmd.color, now)
 	case "abort":
 		_, err = r.game.Abort(cmd.color, now)
+	case "draw_offer":
+		// A Result here means the opponent's offer was accepted: the loop announces the Game over,
+		// so there is no offer to report.
+		var result *game.Result
+		result, err = r.game.OfferDraw(cmd.color, now)
+		if err == nil && result == nil {
+			r.broadcast(gin.H{"type": "draw_offered", "from": cmd.color.String()})
+		}
+	case "draw_response":
+		// No Result means the offer was declined; an accepted one ends the Game, which the loop
+		// announces instead.
+		var result *game.Result
+		result, err = r.game.RespondToDraw(cmd.color, msg.Accept, now)
+		if err == nil && result == nil {
+			r.broadcast(gin.H{"type": "draw_declined", "from": cmd.color.String()})
+		}
 	default:
 		reject(cmd.conn, "bad_message", "Tipo desconhecido")
 		return
@@ -258,6 +280,10 @@ func (r *room) handleMessage(cmd command, now time.Time) {
 		reject(cmd.conn, "illegal_move", "Movimento ilegal")
 	case errors.Is(err, game.ErrCannotAbort):
 		reject(cmd.conn, "cannot_abort", "Não é possível abortar após os primeiros lances")
+	case errors.Is(err, game.ErrDrawAlreadyOffered):
+		reject(cmd.conn, "draw_already_offered", "Você já ofereceu empate neste lance")
+	case errors.Is(err, game.ErrNoDrawOffer):
+		reject(cmd.conn, "no_draw_offer", "Nenhuma oferta de empate pendente")
 	}
 	// game.ErrGameOver needs no reply: the Game ended during this call, and the loop announces it next.
 }
@@ -328,6 +354,8 @@ type joinedMessage struct {
 	Turn              string     `json:"turn"`
 	Clocks            clocksWire `json:"clocks"`
 	OpponentConnected bool       `json:"opponent_connected"`
+	DrawOffer         *string    `json:"draw_offer"` // who has an offer open, null for none
+	CanOffer          bool       `json:"can_offer"`  // whether this player may offer a draw now
 }
 
 type clocksWire struct {

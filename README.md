@@ -9,6 +9,7 @@ A real-time multiplayer chess application with JWT authentication, built with Go
 - Real-time chess gameplay over WebSocket
 - Time controls: bullet (1 min), blitz (3 min), rapid (5 min), classical (10 min)
 - Abort before both sides have moved; automatic draws by threefold repetition and the fifty-move rule
+- Draw offers: either player may offer, once per move of theirs, and the opponent accepts or declines
 - Game result persistence
 
 ## Tech Stack
@@ -98,16 +99,25 @@ Copy `chess-app/values.yaml` to `chess-app/values-local.yaml`, fill in the real 
 { "type": "move", "from": "e2", "to": "e4", "promotion": "" }
 { "type": "resign" }
 { "type": "abort" }   // only before both sides have made their first move
+{ "type": "draw_offer" }                      // offering into an open offer accepts it
+{ "type": "draw_response", "accept": true }   // an absent accept field declines
 
 // Server → Client
 // clocks: { "white_ms": 180000, "black_ms": 180000, "running": "white" | "black" | null }
 // Clocks start after both first moves; the client counts down locally between snapshots.
 { "type": "joined", "color": "white", "fen": "...", "moves": ["e2e4"], "turn": "black",
-  "clocks": { ... }, "opponent_connected": true }
+  "clocks": { ... }, "opponent_connected": true,
+  "draw_offer": "white" | "black" | null,  // an offer still standing, replayed on reconnect
+  "can_offer": true }                      // whether this player may offer a draw now
 { "type": "opponent_joined", "message": "..." }
 { "type": "move", "from": "e2", "to": "e4", "promotion": "", "fen": "...", "turn": "black", "clocks": { ... } }
+// The three draw events go to both players; from is the player who caused them.
+{ "type": "draw_offered", "from": "white" }
+{ "type": "draw_declined", "from": "black" }
+{ "type": "draw_withdrawn", "from": "white" }   // the offerer moved, lapsing their offer
 { "type": "game_over", "winner": "white" | "black" | null, "method": "checkmate", "clocks": { ... } }
-{ "type": "error", "code": "not_your_turn" | "illegal_move" | "cannot_abort" | "bad_message", "message": "..." }
+{ "type": "error", "code": "not_your_turn" | "illegal_move" | "cannot_abort" | "bad_message"
+                         | "draw_already_offered" | "no_draw_offer", "message": "..." }
 ```
 
-`method` is one of `checkmate`, `stalemate`, `insufficient_material`, `threefold_repetition`, `fifty_moves`, `resign`, `timeout`, `disconnect`, `aborted`.
+`method` is one of `checkmate`, `stalemate`, `insufficient_material`, `threefold_repetition`, `fifty_moves`, `agreement`, `resign`, `timeout`, `disconnect`, `aborted`.

@@ -42,6 +42,10 @@ var (
 	ErrIllegalMove = errors.New("illegal move")
 	ErrGameOver    = errors.New("game over")
 	ErrCannotAbort = errors.New("cannot abort after both sides have moved")
+	ErrNoDrawOffer = errors.New("no draw offer to respond to")
+	// ErrDrawAlreadyOffered means the player has already offered a draw since their last move,
+	// whether that offer is still standing or was declined.
+	ErrDrawAlreadyOffered = errors.New("draw already offered")
 )
 
 // firstMoveWindow is how long the side to move has to make their first move before the Game Aborts.
@@ -49,10 +53,11 @@ const firstMoveWindow = 30 * time.Second
 
 // Moved is what a successful move reports.
 type Moved struct {
-	FEN    string
-	Turn   Color
-	Clocks Clocks
-	Result *Result
+	FEN           string
+	Turn          Color
+	Clocks        Clocks
+	Result        *Result
+	DrawWithdrawn bool // the mover had a draw offer open, and this move withdrew it
 }
 
 // Clocks is each side's remaining time and which Clock is running (NoColor before both first moves).
@@ -71,6 +76,7 @@ const (
 	InsufficientMaterial Method = "insufficient_material"
 	ThreefoldRepetition  Method = "threefold_repetition"
 	FiftyMoves           Method = "fifty_moves"
+	Agreement            Method = "agreement"
 	Resign               Method = "resign"
 	Timeout              Method = "timeout"
 	Disconnect           Method = "disconnect"
@@ -85,11 +91,12 @@ type Result struct {
 
 // State is a full snapshot of the Game, as shown to a joining player.
 type State struct {
-	FEN    string
-	Moves  []string // UCI, in order
-	Turn   Color
-	Clocks Clocks
-	Result *Result
+	FEN       string
+	Moves     []string // UCI, in order
+	Turn      Color
+	Clocks    Clocks
+	Result    *Result
+	DrawOffer Color // who has a draw offer open; NoColor for none, and for a finished Game
 }
 
 // Game is one chess Game. It is not safe for concurrent use; one owner drives it.
@@ -99,6 +106,8 @@ type Game struct {
 	lastMoveAt time.Time
 	moves      []string // UCI, in order
 	result     *Result
+	drawOffer  Color          // who has a draw offer open, NoColor for none
+	canOffer   map[Color]bool // who may still offer a draw before their next move
 }
 
 // Option configures a new Game.
@@ -125,6 +134,7 @@ func New(timeControl time.Duration, now time.Time, opts ...Option) *Game {
 		chess:      chess.NewGame(chessOpts...),
 		timeLeft:   map[Color]time.Duration{White: timeControl, Black: timeControl},
 		lastMoveAt: now,
+		canOffer:   map[Color]bool{White: true, Black: true},
 	}
 }
 
@@ -147,8 +157,19 @@ func (g *Game) Move(color Color, uci string, now time.Time) (Moved, error) {
 	g.charge(color, now)
 	g.moves = append(g.moves, uci)
 	g.lastMoveAt = now
+	g.canOffer[color] = true // moving earns back the right to offer a draw
+	withdrawn := g.drawOffer == color
+	if withdrawn {
+		g.drawOffer = NoColor
+	}
 	g.endOnPosition(color)
-	return Moved{FEN: g.chess.FEN(), Turn: g.turn(), Clocks: g.clocks(now), Result: g.result}, nil
+	return Moved{
+		FEN:           g.chess.FEN(),
+		Turn:          g.turn(),
+		Clocks:        g.clocks(now),
+		Result:        g.result,
+		DrawWithdrawn: withdrawn,
+	}, nil
 }
 
 // Abort ends the Game with no winner. Allowed for either side only before both have made their first move.
@@ -174,6 +195,73 @@ func (g *Game) Disconnect(color Color, now time.Time) (*Result, error) {
 	return g.forfeit(color, Disconnect, now)
 }
 
+// OfferDraw offers a draw to color's opponent. If the opponent already had an offer open, it is
+// accepted and the Game ends in a draw by agreement. A player may otherwise offer only once per
+// move of theirs: offering again before moving returns ErrDrawAlreadyOffered, whether the first
+// offer still stands or was declined.
+// The returned Result is nil unless this call ended the Game.
+func (g *Game) OfferDraw(color Color, now time.Time) (*Result, error) {
+	g.settle(now)
+	if g.result != nil {
+		return nil, ErrGameOver
+	}
+	// Both sides have now said "draw", so this is an acceptance. It is checked before the
+	// once-per-move guard: a spent right must never stand between two players who agree.
+	if g.drawOffer == color.Opponent() {
+		g.drawOffer = NoColor
+		g.acceptDraw(now)
+		return g.result, nil
+	}
+	if !g.canOffer[color] {
+		return nil, ErrDrawAlreadyOffered
+	}
+	g.canOffer[color] = false
+	g.drawOffer = color
+	return nil, nil
+}
+
+// CanOfferDraw reports whether color may offer a draw now: false once they have offered and not yet
+// moved, and false once the Game has ended.
+func (g *Game) CanOfferDraw(color Color, now time.Time) bool {
+	g.settle(now)
+	return g.result == nil && g.canOffer[color]
+}
+
+// RespondToDraw accepts or declines the offer standing against color. Accepting ends the Game in a
+// draw by agreement; declining leaves it in progress. With no offer against color — including a
+// response to color's own offer — it returns ErrNoDrawOffer.
+// The returned Result is nil unless this call ended the Game.
+func (g *Game) RespondToDraw(color Color, accept bool, now time.Time) (*Result, error) {
+	g.settle(now)
+	if g.result != nil {
+		return nil, ErrGameOver
+	}
+	if g.drawOffer != color.Opponent() {
+		return nil, ErrNoDrawOffer
+	}
+	g.drawOffer = NoColor
+	if !accept {
+		return nil, nil
+	}
+	g.acceptDraw(now)
+	return g.result, nil
+}
+
+// openDrawOffer returns who has an offer open. A finished Game has none, whatever ended it.
+func (g *Game) openDrawOffer() Color {
+	if g.result != nil {
+		return NoColor
+	}
+	return g.drawOffer
+}
+
+// acceptDraw ends the Game in a draw by agreement, charging the side to move for their thinking
+// time first. Both accept paths go through it so they cannot drift apart.
+func (g *Game) acceptDraw(now time.Time) {
+	g.charge(g.turn(), now)
+	g.end(Result{Method: Agreement})
+}
+
 func (g *Game) forfeit(color Color, method Method, now time.Time) (*Result, error) {
 	g.settle(now)
 	if g.result != nil {
@@ -194,7 +282,14 @@ func (g *Game) Result(now time.Time) *Result {
 // State returns the current snapshot of the Game.
 func (g *Game) State(now time.Time) State {
 	g.settle(now)
-	return State{FEN: g.chess.FEN(), Moves: append([]string{}, g.moves...), Turn: g.turn(), Clocks: g.clocks(now), Result: g.result}
+	return State{
+		FEN:       g.chess.FEN(),
+		Moves:     append([]string{}, g.moves...),
+		Turn:      g.turn(),
+		Clocks:    g.clocks(now),
+		Result:    g.result,
+		DrawOffer: g.openDrawOffer(),
+	}
 }
 
 // settle ends the Game if time has run out by now, or Aborts it if a first move is overdue.

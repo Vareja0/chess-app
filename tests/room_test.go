@@ -320,6 +320,198 @@ func TestRoom_AbortEndsTheGameWithNoWinner(t *testing.T) {
 	expectEnded(t, e, nil, "aborted")
 }
 
+func TestRoom_DrawOfferReachesBothPlayers(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	for _, conn := range []*websocket.Conn{white, black} {
+		if m := expect(t, conn, "draw_offered"); m["from"] != "white" {
+			t.Errorf("draw_offered = %v, want from white", m)
+		}
+	}
+}
+
+func TestRoom_DeclinedDrawOfferReachesBothAndLeavesTheRoomLive(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_response", "accept": false})
+	for _, conn := range []*websocket.Conn{white, black} {
+		if m := expect(t, conn, "draw_declined"); m["from"] != "black" {
+			t.Errorf("draw_declined = %v, want from black", m)
+		}
+	}
+
+	// The Room is still live: White's next move is played and broadcast as usual.
+	send(t, white, move("e2", "e4"))
+	expect(t, white, "move")
+	expect(t, black, "move")
+}
+
+// A draw_response with no accept field declines, rather than ending the Game on a malformed message.
+func TestRoom_DrawResponseWithoutAnAcceptFieldDeclines(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_response"})
+	for _, conn := range []*websocket.Conn{white, black} {
+		if m := expect(t, conn, "draw_declined"); m["from"] != "black" {
+			t.Errorf("draw_declined = %v, want from black", m)
+		}
+	}
+}
+
+func TestRoom_DrawRejectionsGoOnlyToTheSender(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	// Black has nothing to respond to.
+	send(t, black, map[string]any{"type": "draw_response", "accept": true})
+	if m := expect(t, black, "error"); m["code"] != "no_draw_offer" {
+		t.Errorf("error = %v, want no_draw_offer", m)
+	}
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	// White has already offered since their last move.
+	send(t, white, map[string]any{"type": "draw_offer"})
+	if m := expect(t, white, "error"); m["code"] != "draw_already_offered" {
+		t.Errorf("error = %v, want draw_already_offered", m)
+	}
+
+	// Neither error reached the other player: the next thing each receives is White's real move.
+	send(t, white, move("e2", "e4"))
+	expect(t, white, "move")
+	expect(t, black, "move")
+}
+
+func TestRoom_AcceptedDrawEndsTheGameOnce(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_response", "accept": true})
+	for _, conn := range []*websocket.Conn{white, black} {
+		m := expect(t, conn, "game_over")
+		if m["winner"] != nil || m["method"] != "agreement" {
+			t.Errorf("game_over = %v, want a draw by agreement", m)
+		}
+		expectClosed(t, conn)
+	}
+	expectEnded(t, e, nil, "agreement")
+}
+
+func TestRoom_OfferingIntoAnOpenOfferEndsTheGame(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, map[string]any{"type": "draw_offer"})
+	for _, conn := range []*websocket.Conn{white, black} {
+		m := expect(t, conn, "game_over")
+		if m["winner"] != nil || m["method"] != "agreement" {
+			t.Errorf("game_over = %v, want a draw by agreement", m)
+		}
+	}
+	expectEnded(t, e, nil, "agreement")
+}
+
+func TestRoom_OfferersMoveAnnouncesTheWithdrawal(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, white, move("e2", "e4"))
+	for _, conn := range []*websocket.Conn{white, black} {
+		expect(t, conn, "move")
+		if m := expect(t, conn, "draw_withdrawn"); m["from"] != "white" {
+			t.Errorf("draw_withdrawn = %v, want from white", m)
+		}
+	}
+}
+
+// A reconnecting player is told about an offer that is still standing, in both directions: the
+// offerer so their Draw button stays spent, the recipient so they can still answer it.
+func TestRoom_JoinedReplaysAStandingDrawOffer(t *testing.T) {
+	e := newRoomEnv(t)
+
+	white := e.dial(t, whiteID)
+	if j := expect(t, white, "joined"); j["draw_offer"] != nil || j["can_offer"] != true {
+		t.Errorf("White's joined = %v, want no offer and can_offer true", j)
+	}
+	black := e.dial(t, blackID)
+	expect(t, black, "joined")
+	expect(t, white, "opponent_joined")
+
+	send(t, white, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	// The offerer reconnects: the offer is theirs, and their right to offer is spent.
+	white2 := e.dial(t, whiteID)
+	if j := expect(t, white2, "joined"); j["draw_offer"] != "white" || j["can_offer"] != false {
+		t.Errorf("offerer's joined = %v, want draw_offer white and can_offer false", j)
+	}
+	expect(t, black, "opponent_joined")
+
+	// The recipient reconnects: the same offer, and their own right untouched.
+	black2 := e.dial(t, blackID)
+	if j := expect(t, black2, "joined"); j["draw_offer"] != "white" || j["can_offer"] != true {
+		t.Errorf("recipient's joined = %v, want draw_offer white and can_offer true", j)
+	}
+}
+
+// A move can both withdraw the mover's offer and end the Game. The withdrawal is still announced.
+func TestRoom_MateByTheOffererAnnouncesTheWithdrawalThenTheResult(t *testing.T) {
+	e := newRoomEnv(t)
+	white, black := e.joinBoth(t)
+
+	for _, m := range []struct {
+		conn     *websocket.Conn
+		from, to string
+	}{{white, "f2", "f3"}, {black, "e7", "e5"}, {white, "g2", "g4"}} {
+		send(t, m.conn, move(m.from, m.to))
+		expect(t, white, "move")
+		expect(t, black, "move")
+	}
+
+	send(t, black, map[string]any{"type": "draw_offer"})
+	expect(t, white, "draw_offered")
+	expect(t, black, "draw_offered")
+
+	send(t, black, move("d8", "h4")) // mate, by the player whose offer is standing
+	for _, conn := range []*websocket.Conn{white, black} {
+		expect(t, conn, "move")
+		if m := expect(t, conn, "draw_withdrawn"); m["from"] != "black" {
+			t.Errorf("draw_withdrawn = %v, want from black", m)
+		}
+		if m := expect(t, conn, "game_over"); m["winner"] != "black" || m["method"] != "checkmate" {
+			t.Errorf("game_over = %v, want Black by checkmate", m)
+		}
+	}
+	expectEnded(t, e, "black", "checkmate")
+}
+
 func TestRoom_CommandArrivingAfterTheAbortWindowStillEndsTheRoom(t *testing.T) {
 	e := newRoomEnv(t)
 	white, black := e.joinBoth(t)
