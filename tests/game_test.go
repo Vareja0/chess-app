@@ -347,6 +347,47 @@ func TestGame_StateReportsWhoHasAnOfferOpen(t *testing.T) {
 	}
 }
 
+func TestGame_OnlyOneDrawOfferPerOwnMove(t *testing.T) {
+	t.Run("offering twice without moving", func(t *testing.T) {
+		g := newGame(t)
+		play(t, g, at(0), "e2e4", "e7e5")
+		g.OfferDraw(game.White, at(time.Second))
+
+		if _, err := g.OfferDraw(game.White, at(2*time.Second)); err != game.ErrDrawAlreadyOffered {
+			t.Fatalf("err = %v, want ErrDrawAlreadyOffered", err)
+		}
+		if o := g.State(at(2 * time.Second)).DrawOffer; o != game.White {
+			t.Errorf("DrawOffer = %v, want White's first offer still standing", o)
+		}
+	})
+
+	t.Run("offering again after a decline", func(t *testing.T) {
+		g := newGame(t)
+		play(t, g, at(0), "e2e4", "e7e5")
+		g.OfferDraw(game.White, at(time.Second))
+		g.RespondToDraw(game.Black, false, at(2*time.Second))
+
+		if _, err := g.OfferDraw(game.White, at(3*time.Second)); err != game.ErrDrawAlreadyOffered {
+			t.Fatalf("err = %v, want ErrDrawAlreadyOffered", err)
+		}
+	})
+
+	t.Run("moving earns the right back", func(t *testing.T) {
+		g := newGame(t)
+		play(t, g, at(0), "e2e4", "e7e5")
+		g.OfferDraw(game.White, at(time.Second))
+		g.RespondToDraw(game.Black, false, at(2*time.Second))
+		play(t, g, at(3*time.Second), "g1f3")
+
+		if _, err := g.OfferDraw(game.White, at(4*time.Second)); err != nil {
+			t.Fatalf("OfferDraw after moving: %v", err)
+		}
+		if o := g.State(at(4 * time.Second)).DrawOffer; o != game.White {
+			t.Errorf("DrawOffer = %v, want White", o)
+		}
+	})
+}
+
 func TestGame_PositionsThatEndTheGame(t *testing.T) {
 	cases := []struct {
 		name  string

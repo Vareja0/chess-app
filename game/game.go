@@ -43,6 +43,9 @@ var (
 	ErrGameOver    = errors.New("game over")
 	ErrCannotAbort = errors.New("cannot abort after both sides have moved")
 	ErrNoDrawOffer = errors.New("no draw offer to respond to")
+	// ErrDrawAlreadyOffered means the player has already offered a draw since their last move,
+	// whether that offer is still standing or was declined.
+	ErrDrawAlreadyOffered = errors.New("draw already offered")
 )
 
 // firstMoveWindow is how long the side to move has to make their first move before the Game Aborts.
@@ -102,7 +105,8 @@ type Game struct {
 	lastMoveAt time.Time
 	moves      []string // UCI, in order
 	result     *Result
-	drawOffer  Color // who has a draw offer open, NoColor for none
+	drawOffer  Color          // who has a draw offer open, NoColor for none
+	canOffer   map[Color]bool // who may still offer a draw before their next move
 }
 
 // Option configures a new Game.
@@ -129,6 +133,7 @@ func New(timeControl time.Duration, now time.Time, opts ...Option) *Game {
 		chess:      chess.NewGame(chessOpts...),
 		timeLeft:   map[Color]time.Duration{White: timeControl, Black: timeControl},
 		lastMoveAt: now,
+		canOffer:   map[Color]bool{White: true, Black: true},
 	}
 }
 
@@ -151,6 +156,7 @@ func (g *Game) Move(color Color, uci string, now time.Time) (Moved, error) {
 	g.charge(color, now)
 	g.moves = append(g.moves, uci)
 	g.lastMoveAt = now
+	g.canOffer[color] = true // moving earns back the right to offer a draw
 	g.endOnPosition(color)
 	return Moved{FEN: g.chess.FEN(), Turn: g.turn(), Clocks: g.clocks(now), Result: g.result}, nil
 }
@@ -178,15 +184,28 @@ func (g *Game) Disconnect(color Color, now time.Time) (*Result, error) {
 	return g.forfeit(color, Disconnect, now)
 }
 
-// OfferDraw offers a draw to color's opponent.
+// OfferDraw offers a draw to color's opponent. A player may offer only once per move of theirs:
+// offering again before moving returns ErrDrawAlreadyOffered, whether the first offer still stands
+// or was declined.
 // The returned Result is nil unless this call ended the Game.
 func (g *Game) OfferDraw(color Color, now time.Time) (*Result, error) {
 	g.settle(now)
 	if g.result != nil {
 		return nil, ErrGameOver
 	}
+	if !g.canOffer[color] {
+		return nil, ErrDrawAlreadyOffered
+	}
+	g.canOffer[color] = false
 	g.drawOffer = color
 	return nil, nil
+}
+
+// CanOfferDraw reports whether color may offer a draw now: false once they have offered and not yet
+// moved, and false once the Game has ended.
+func (g *Game) CanOfferDraw(color Color, now time.Time) bool {
+	g.settle(now)
+	return g.result == nil && g.canOffer[color]
 }
 
 // RespondToDraw accepts or declines the offer standing against color. Accepting ends the Game in a
